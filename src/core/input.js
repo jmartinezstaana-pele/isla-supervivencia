@@ -14,10 +14,22 @@ export const BINDINGS = {
   run: ['ShiftLeft', 'ShiftRight'],
   pause: ['Escape'],
   debug: ['F3'],
+  timeSkip: ['F5'],
+  rainToggle: ['F6'],
+  interact: ['KeyE'],
+  inventory: ['KeyI', 'Tab'],
+  stealthKill: ['KeyF'],
+  torch: ['KeyT'],
+  eat: ['KeyQ'],
+  drink: ['KeyR'],
+  heal: ['KeyH'],
+  confirm: ['Enter', 'NumpadEnter'],
+  attack: ['KeyJ'],
+  help: ['F1'],
 };
 
 // Teclas cuyo comportamiento por defecto del navegador (scroll, foco…) se anula.
-const PREVENT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3']);
+const PREVENT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F1', 'F3', 'F5', 'F6']);
 
 export class Input {
   constructor(canvas) {
