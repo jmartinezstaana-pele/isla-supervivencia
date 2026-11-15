@@ -39,3 +39,33 @@ export function hash2(x, y, seed = 0) {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
+
+/** Ruido de valor 2D suave (0–1) con semilla. */
+export function valueNoise(x, y, seed = 0) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi, seed);
+  const b = hash2(xi + 1, yi, seed);
+  const c = hash2(xi, yi + 1, seed);
+  const d = hash2(xi + 1, yi + 1, seed);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+/** Ruido fractal (varias octavas), 0–1. */
+export function fbm(x, y, seed = 0, octaves = 3) {
+  let sum = 0;
+  let amp = 0.5;
+  let norm = 0;
+  for (let i = 0; i < octaves; i++) {
+    sum += valueNoise(x, y, seed + i * 17) * amp;
+    norm += amp;
+    x *= 2.03;
+    y *= 2.03;
+    amp *= 0.5;
+  }
+  return sum / norm;
+}

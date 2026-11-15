@@ -13,11 +13,17 @@ export const MAX_DT = 1 / 30;
 /** Paso máximo de cada subpaso de movimiento (a 1/120 s nadie avanza más de 2 px). */
 export const PHYSICS_STEP = 1 / 120;
 
-/** Zoom de la cámara: con 1,5 se ven unos 27 × 15 tiles. */
-export const CAMERA_ZOOM = 1.5;
+/**
+ * El mundo se pinta a baja resolución (640 × 360, unos 20 × 11 tiles) y se
+ * escala ×2 sin suavizado, para que terreno, props y sprites sean pixel art
+ * coherente (TRASPASO §4c-A). El HUD se dibuja encima a 1280 × 720.
+ */
+export const LOW_W = 640;
+export const LOW_H = 360;
+export const PIXEL_SCALE = VIEW_W / LOW_W;
 
-/** Escala a la que se dibujan los sprites del atlas (96 px → 48 px). */
-export const SPRITE_SCALE = 0.5;
+/** Escala de dibujo de los sprites: el atlas ya se reduce a la mitad al cargar. */
+export const SPRITE_SCALE = 1;
 
 /**
  * Agilidad provisional del jugador hasta que exista la creación de personaje (Fase 2).

@@ -1,53 +1,25 @@
-// Tipos de suelo y de objeto del mundo cenital.
-// Cada tile tiene: suelo (G), objeto encima (O) y altura (nivel lógico 0, 1, 2…).
+// Tipos de suelo del mundo cenital. Los objetos (árboles, cajas, ruinas…) ya no
+// van en la cuadrícula: son props con posición libre (ver world/props.js).
 
-/** Suelos. */
 export const G = {
-  GRASS: 0,
-  SAND: 1,
-  DIRT: 2,
-  SHALLOW: 3,  // agua poco profunda: ralentiza
-  DEEP: 4,     // agua profunda: se nada despacio
-  CHASM: 5,    // grieta: no se puede pisar; se cruza saltando
-  CLIFF: 6,    // pared de acantilado entre dos alturas: se escala
-  LEDGE_S: 7,  // saliente hacia el sur: se salta hacia abajo
-  TALL_GRASS: 8, // hierba alta: no es sólida; esconde (sigilo, Fase 7)
+  JUNGLE: 0,      // suelo de selva
+  GRASS: 1,       // hierba clara (transición playa-selva)
+  SAND: 2,
+  DIRT: 3,        // camino de tierra
+  SHALLOW: 4,     // mar poco profundo: ralentiza
+  DEEP: 5,        // mar profundo: se nada
+  RIVER: 6,       // río: no se puede cruzar (salvo por el puente)
+  BRIDGE: 7,      // puente colgante
+  WATERFALL: 8,   // cascada (sólida)
+  CLIFF: 9,       // pared de acantilado: se escala
+  LEDGE_S: 10,    // saliente hacia el sur: se salta hacia abajo
+  CHASM: 11,      // grieta: se cruza saltando
+  TALL_GRASS: 12, // hierba alta: agachado, te oculta
+  STONE: 13,      // suelo de losas de las ruinas
 };
 
-/** Objetos sobre el suelo. */
-export const O = {
-  NONE: 0,
-  TREE: 1,     // sólido solo en el tronco; la copa tapa al jugador si pasa por detrás
-  BOULDER: 2,  // roca suelta
-  WALL: 3,     // bloque de roca de un tile
-};
+/** Agua de cualquier tipo (para el dibujo animado). */
+export const isWaterGround = (g) => g === G.SHALLOW || g === G.DEEP || g === G.RIVER || g === G.WATERFALL;
 
-/**
- * Leyenda de los mapas en texto: carácter → { suelo, objeto, altura }.
- * La altura de las paredes de acantilado (C) se calcula a partir de sus vecinos.
- */
-export const LEGEND = {
-  ',': { g: G.GRASS, h: 0 },
-  'S': { g: G.GRASS, h: 0, spawn: true },
-  '.': { g: G.SAND, h: 0 },
-  ':': { g: G.DIRT, h: 0 },
-  '-': { g: G.SHALLOW, h: 0 },
-  '~': { g: G.DEEP, h: 0 },
-  'X': { g: G.CHASM, h: 0 },
-  '"': { g: G.TALL_GRASS, h: 0 },
-  'T': { g: G.GRASS, h: 0, o: O.TREE },
-  'O': { g: G.GRASS, h: 0, o: O.BOULDER },
-  '#': { g: G.GRASS, h: 0, o: O.WALL },
-  '1': { g: G.GRASS, h: 1 },
-  '2': { g: G.GRASS, h: 2 },
-  't': { g: G.GRASS, h: 1, o: O.TREE },
-  'C': { g: G.CLIFF, h: 0 },
-  'v': { g: G.LEDGE_S, h: 0 },
-};
-
-/** Rectángulos de colisión de los objetos, en coordenadas locales del tile (32 px). */
-export const OBJECT_RECTS = {
-  [O.TREE]: { x: 10, y: 18, w: 12, h: 12 },
-  [O.BOULDER]: { x: 2, y: 8, w: 28, h: 22 },
-  [O.WALL]: { x: 0, y: 0, w: 32, h: 32 },
-};
+/** Suelos que nunca se pisan andando. */
+export const isBlockingGround = (g) => g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S;

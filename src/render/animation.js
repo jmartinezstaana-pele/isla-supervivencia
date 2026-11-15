@@ -40,8 +40,8 @@ export class Animator {
 export function drawFrame(ctx, atlas, frame, x, y, facing, scale = SPRITE_SCALE) {
   const [sx, sy, sw, sh] = frame;
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(Math.round(x), Math.round(y));
   ctx.scale(facing * scale, scale);
-  ctx.drawImage(atlas, sx, sy, sw, sh, -sw / 2, -sh, sw, sh);
+  ctx.drawImage(atlas, sx, sy, sw, sh, -Math.round(sw / 2), -sh, sw, sh);
   ctx.restore();
 }

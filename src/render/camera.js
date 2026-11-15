@@ -1,7 +1,7 @@
 // Cámara cenital: sigue al jugador en x e y con suavizado, mira un poco hacia
 // donde se mueve y respeta los límites del mapa.
 
-import { VIEW_W, VIEW_H, CAMERA_ZOOM } from '../config.js';
+import { LOW_W, LOW_H } from '../config.js';
 import { clamp, smoothFactor } from '../core/math.js';
 
 const LOOK_AHEAD = 0.35;  // segundos de movimiento que se adelanta la cámara
@@ -14,7 +14,6 @@ export class Camera {
   constructor(worldW, worldH) {
     this.worldW = worldW;
     this.worldH = worldH;
-    this.zoom = CAMERA_ZOOM;
     this.x = 0;
     this.y = 0;
     this.lookX = 0;
@@ -22,11 +21,20 @@ export class Camera {
   }
 
   get viewW() {
-    return VIEW_W / this.zoom;
+    return LOW_W;
   }
 
   get viewH() {
-    return VIEW_H / this.zoom;
+    return LOW_H;
+  }
+
+  /** Posición entera de la cámara (el mundo se pinta a píxel exacto). */
+  get ix() {
+    return Math.round(this.x);
+  }
+
+  get iy() {
+    return Math.round(this.y);
   }
 
   target(p) {
@@ -60,9 +68,8 @@ export class Camera {
     this.y = maxY > 0 ? clamp(this.y, 0, maxY) : maxY / 2;
   }
 
-  /** Aplica la transformación de mundo (posición redondeada a píxeles de pantalla). */
+  /** Aplica la transformación de mundo al buffer de baja resolución. */
   apply(ctx) {
-    const z = this.zoom;
-    ctx.setTransform(z, 0, 0, z, -Math.round(this.x * z), -Math.round(this.y * z));
+    ctx.setTransform(1, 0, 0, 1, -this.ix, -this.iy);
   }
 }
