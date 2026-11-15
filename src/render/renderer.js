@@ -1,7 +1,11 @@
-// Composición de cada fotograma: el mundo se pinta en un buffer de 640 × 360 y
-// se escala ×2 sin suavizado al canvas principal; el HUD va encima a 1280 × 720.
+// Composición de cada fotograma: el mundo (640 × 360 píxeles de mundo) se pinta
+// en un buffer de 640K × 360K píxeles reales, con la escala entera K de la
+// pantalla: terreno y props se amplían sin suavizado y los personajes se dibujan
+// 1:1 a resolución real. Después se copia al canvas principal (1:1 si encaja) y
+// el HUD va encima a resolución real.
 
-import { LOW_W, LOW_H, VIEW_W, VIEW_H } from '../config.js';
+import { LOW_W, LOW_H, TILE } from '../config.js';
+import { display, uiTransform, worldScreen } from '../core/display.js';
 import { PixelCanvas, rgb } from '../gfx/pixel.js';
 
 const shadowCache = new Map();
@@ -23,9 +27,16 @@ export class Renderer {
   constructor(game) {
     this.game = game;
     this.low = document.createElement('canvas');
-    this.low.width = LOW_W;
-    this.low.height = LOW_H;
     this.lctx = this.low.getContext('2d');
+  }
+
+  /** Ajusta el buffer del mundo a la escala entera actual. */
+  fit() {
+    const K = display.K;
+    if (this.low.width !== LOW_W * K || this.low.height !== LOW_H * K) {
+      this.low.width = LOW_W * K;
+      this.low.height = LOW_H * K;
+    }
     this.lctx.imageSmoothingEnabled = false;
   }
 
@@ -74,14 +85,25 @@ export class Renderer {
 
   render(ctx) {
     const g = this.game;
-    const l = this.lctx;
     const cam = g.camera;
     const t = g.time;
-    l.setTransform(1, 0, 0, 1, 0, 0);
+    const K = display.K;
+    // Si el canvas mide justo 640K × 360K (lo normal: 720p, 1080p…), el mundo se
+    // pinta directamente en él, sin buffer intermedio ni copia.
+    const direct = ctx.canvas.width === LOW_W * K && ctx.canvas.height === LOW_H * K;
+    if (!direct) this.fit();
+    const l = direct ? ctx : this.lctx;
+    l.imageSmoothingEnabled = false;
+    display.ox = g.shake > 0 ? Math.round((Math.random() - 0.5) * 3) * K : 0;
+    display.oy = g.shake > 0 ? Math.round((Math.random() - 0.5) * 3) * K : 0;
+    worldScreen(l);
     l.globalAlpha = 1;
     l.globalCompositeOperation = 'source-over';
-    l.fillStyle = '#173f6a';
-    l.fillRect(0, 0, LOW_W, LOW_H);
+    // Fondo de mar solo si la vista se sale del mapa (si no, el suelo lo tapa todo).
+    if (cam.ix < 0 || cam.iy < 0 || cam.ix + LOW_W > g.map.width * TILE || cam.iy + LOW_H > g.map.height * TILE) {
+      l.fillStyle = '#173f6a';
+      l.fillRect(0, 0, LOW_W, LOW_H);
+    }
     // Suelo pintado por trozos (los que falten se pintan ahora).
     g.terrain.draw(l, cam.ix, cam.iy, LOW_W, LOW_H);
     cam.apply(l);
@@ -110,10 +132,17 @@ export class Renderer {
     g.weather.draw(l);
     g.afterWorld(l, cam, t);
 
+    display.ox = display.oy = 0;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    if (!direct) {
+      // Tamaño de ventana sin escala entera exacta: se reduce con suavizado.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(this.low, 0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
     ctx.imageSmoothingEnabled = false;
-    const sh = g.shake > 0 ? Math.round((Math.random() - 0.5) * 3) * 2 : 0;
-    const sv = g.shake > 0 ? Math.round((Math.random() - 0.5) * 3) * 2 : 0;
-    ctx.drawImage(this.low, sh, sv, VIEW_W, VIEW_H);
+    uiTransform(ctx);
   }
 }

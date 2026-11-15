@@ -6,6 +6,7 @@ import { VIEW_W, VIEW_H, TILE } from '../config.js';
 import { text, panel } from '../render/hud.js';
 import { LAND_PX, paintLandingMap, paintFog } from '../world/landingMap.js';
 import { ZONES, ZONE_IDS } from '../world/worldMap.js';
+import { uiTransform } from '../core/display.js';
 
 const S = 2; // escala del mapa pintado en pantalla (cada tile = 4 px)
 
@@ -21,7 +22,7 @@ export function drawWorldMap(c, g) {
   const h = paint.H * S;
   const x0 = Math.round((VIEW_W - w) / 2);
   const y0 = 56;
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   c.fillStyle = 'rgba(0, 0, 0, 0.65)';
   c.fillRect(0, 0, VIEW_W, VIEW_H);
   panel(c, x0 - 10, y0 - 44, w + 20, h + 64, 0.92);

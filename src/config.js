@@ -1,7 +1,7 @@
 // Constantes globales del juego. Los valores de juego son provisionales
 // (ver docs/TRASPASO.md §1.5) y se ajustarán al equilibrar.
 
-/** Resolución interna del canvas; se escala a la ventana con letterbox. */
+/** Coordenadas lógicas de la interfaz (el canvas real puede ser mayor; ver core/display.js). */
 export const VIEW_W = 1280;
 export const VIEW_H = 720;
 
@@ -14,16 +14,16 @@ export const MAX_DT = 1 / 30;
 export const PHYSICS_STEP = 1 / 120;
 
 /**
- * El mundo se pinta a baja resolución (640 × 360, unos 20 × 11 tiles) y se
- * escala ×2 sin suavizado, para que terreno, props y sprites sean pixel art
- * coherente (TRASPASO §4c-A). El HUD se dibuja encima a 1280 × 720.
+ * El mundo mide 640 × 360 píxeles de mundo (unos 20 × 11 tiles). Terreno y props
+ * son pixel art a esa resolución y se amplían con una escala entera K sin
+ * suavizado (×2 a 720p, ×3 a 1080p); los personajes se dibujan a resolución real
+ * (sesión 6, ver core/display.js y gfx/charSprite.js). La interfaz usa
+ * coordenadas lógicas de 1280 × 720 y se dibuja a resolución real.
  */
 export const LOW_W = 640;
 export const LOW_H = 360;
 export const PIXEL_SCALE = VIEW_W / LOW_W;
 
-/** Escala de dibujo de los sprites: el atlas ya se reduce a la mitad al cargar. */
-export const SPRITE_SCALE = 1;
 
 export const PLAYER = {
   boxW: 18,            // caja de colisión de los pies

@@ -4,6 +4,7 @@
 import { LOW_W, LOW_H, VIEW_W, VIEW_H } from '../config.js';
 import { fbm } from '../core/rng.js';
 import { bayer } from '../gfx/pixel.js';
+import { uiTransform, worldScreen } from '../core/display.js';
 
 const ZONE_TINT = {
   playa: [255, 196, 120, 0.07],
@@ -77,7 +78,7 @@ export class Ambience {
     const S = this.cloud.width;
     const ox = (((cam.ix * 1 - t * 9) % S) + S) % S;
     const oy = (((cam.iy * 1 - t * 4) % S) + S) % S;
-    l.setTransform(1, 0, 0, 1, 0, 0);
+    worldScreen(l);
     l.globalAlpha = strength;
     for (let y = -oy; y < LOW_H; y += S) for (let x = -ox; x < LOW_W; x += S) l.drawImage(this.cloud, x, y);
     l.globalAlpha = 1;
@@ -87,7 +88,7 @@ export class Ambience {
   drawFog(l, cam, t, strength) {
     if (strength <= 0.01) return;
     const F = this.fog.width;
-    l.setTransform(1, 0, 0, 1, 0, 0);
+    worldScreen(l);
     for (const [sp, par, a] of [[6, 1, 0.8], [11, 1.3, 0.5]]) {
       const ox = (((cam.ix * par - t * sp) % F) + F) % F;
       const oy = (((cam.iy * par) % F) + F) % F;
@@ -103,7 +104,7 @@ export class Ambience {
     const k = Math.min(1, dt * 1.5);
     for (let i = 0; i < 4; i++) this.tint[i] += (target[i] - this.tint[i]) * k;
     const [r, g, b, a] = this.tint;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    uiTransform(ctx);
     ctx.fillStyle = `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${a.toFixed(3)})`;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     if (!this.vignette) {

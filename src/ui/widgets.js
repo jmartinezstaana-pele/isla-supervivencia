@@ -3,12 +3,13 @@
 
 import { VIEW_W, VIEW_H } from '../config.js';
 import { text } from '../render/hud.js';
+import { uiTransform } from '../core/display.js';
 
 export const inRect = (m, r) => m.x >= r.x && m.x < r.x + r.w && m.y >= r.y && m.y < r.y + r.h;
 
 /** Dibuja una ilustración cubriendo la pantalla, con zoom lento opcional. */
 export function cover(c, img, zoom = 1, ox = 0.5, oy = 0.5) {
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   c.fillStyle = '#000';
   c.fillRect(0, 0, VIEW_W, VIEW_H);
   if (!img) return;
@@ -52,7 +53,7 @@ export function drawCursor(c, m) {
     'X', 'XX', 'XOX', 'XOOX', 'XOOOX', 'XOOOOX', 'XOOOOOX', 'XOOOOOOX', 'XOOOOXXXX', 'XOXOOX', 'XX XOOX', '   XOOX', '    XX',
   ];
   const s = 2;
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   shape.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       if (row[x] === ' ') continue;

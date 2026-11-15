@@ -45,6 +45,7 @@ export class WaterLayer {
     const oy = cam.iy;
     const bw = LOW_W + 1;
     buf.fill(0);
+    let any = false;
     const t6 = t * 6;
     const tw = (t * 40) | 0;
     const CH = CHUNK;
@@ -98,12 +99,13 @@ export class WaterLayer {
               if (d <= 1) c = SWAMP_RIPPLE;
               else if (((wx + wy * 2 + (n >> 2) + t * 4) % 61) < 1 && (n & 3) === 0) c = SWAMP_SHINE;
             }
-            if (c) buf[orow + wx] = c;
+            if (c) { buf[orow + wx] = c; any = true; }
           }
         }
       }
     }
-    this.ctx.putImageData(this.img, 0, 0);
+    this.any = any;
+    if (any) this.ctx.putImageData(this.img, 0, 0);
     this.cx = ox;
     this.cy = oy;
   }
@@ -113,6 +115,7 @@ export class WaterLayer {
       this.update(cam, t);
       this.lastT = t;
     }
-    l.drawImage(this.canvas, this.cx, this.cy);
+    // Sin agua a la vista no se compone nada (ahorra una pasada a pantalla completa).
+    if (this.any) l.drawImage(this.canvas, this.cx, this.cy);
   }
 }

@@ -3,7 +3,7 @@
 // agua poco profunda / profunda. (x, y) son los pies; la colisión es una caja
 // pequeña en los pies.
 
-import { PLAYER as P, PHYSICS_STEP, TILE, SPRITE_SCALE } from '../config.js';
+import { PLAYER as P, PHYSICS_STEP, TILE } from '../config.js';
 import { DEFAULT_ATTRS, deriveStats } from '../data/attributes.js';
 import { approach, clamp } from '../core/math.js';
 import { moveAxis, boxFree, nudgeFree } from '../world/collision.js';
@@ -543,9 +543,9 @@ export class Player {
   }
 
   draw(ctx, game, time) {
-    const atlas = game.sprites.player.image;
+    const sheet = game.sprites.player;
     const { x, y } = this;
-    let scale = SPRITE_SCALE;
+    let scale = 1;
     if (this.state === 'fall') scale *= Math.max(0.15, this.timer / 0.6);
 
     const inWater = this.state === 'walk' && (this.terrain === 'deep' || this.terrain === 'shallow');
@@ -558,7 +558,7 @@ export class Player {
       ctx.clip();
     }
     const flicker = this.invuln > 0 && Math.floor(this.invuln * 14) % 2 === 0;
-    if (!flicker) drawFrame(ctx, atlas, this.anim.frame, x, y - this.z + sink, this.flip, scale);
+    if (!flicker) drawFrame(ctx, sheet, this.anim, x, y - this.z + sink, this.flip, scale);
     if (this.torchOn && this.state !== 'climb') {
       const fl = game.sprites.flames.small;
       const f = fl[Math.floor(time * 10) % fl.length];

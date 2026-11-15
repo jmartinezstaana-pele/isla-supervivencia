@@ -3,6 +3,11 @@
 // Se usa event.code (posición física de la tecla), así WASD funciona igual en
 // teclados españoles e ingleses.
 
+// Las coordenadas del ratón son siempre lógicas (1280 × 720), sea cual sea el
+// tamaño real del canvas.
+
+import { VIEW_W, VIEW_H } from '../config.js';
+
 /** Acciones del juego → teclas. Ver controles en README.md. */
 export const BINDINGS = {
   left: ['KeyA', 'ArrowLeft'],
@@ -73,8 +78,8 @@ export class Input {
   /** Convierte la posición del ratón a coordenadas internas del canvas (1280 × 720). */
   updateMouse(e) {
     const r = this.canvas.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - r.left) / r.width) * this.canvas.width;
-    this.mouse.y = ((e.clientY - r.top) / r.height) * this.canvas.height;
+    this.mouse.x = ((e.clientX - r.left) / r.width) * VIEW_W;
+    this.mouse.y = ((e.clientY - r.top) / r.height) * VIEW_H;
   }
 
   isDown(action) {

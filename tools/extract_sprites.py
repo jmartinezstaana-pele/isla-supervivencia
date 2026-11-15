@@ -128,6 +128,10 @@ def largest_only(f, box):
 sheets['reach'] = largest_only('Coger objeto (media altura).png', (0, 0, 104, 150))
 sheets['up'] = largest_only('Coger objeto (alto).png', (60, 0, 143, 178))
 del sheets['turn']
+# Escala global del atlas. Sesión 6: 1,5 → el personaje de pie mide 144 px (antes
+# 96) y se dibuja a 1/3 en el mundo (48 px de mundo); a 1080p se ve 1:1. Ver
+# TRASPASO §4d, «nitidez y definición del protagonista».
+ATLAS_SCALE = 1.5
 scales = {'walk': .6, 'walk_down': .54, 'walk_up': .6, 'walk_left': .6, 'run': .64, 'run_down': .59, 'run_up': .64, 'run_left': .64, 'jump': .74, 'crouch': 1.5, 'roll': 1.5, 'dodge': 1.5,
           'hurt': .8, 'pick': .72, 'reach': .66, 'up': .66, 'idle': .6}
 frames_meta = {}
@@ -149,12 +153,12 @@ for k, frs in sheets.items():
         ys, xs = np.nonzero(f[..., 3])
         f = f[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
         im = Image.fromarray(f)
-        s = scales[k]
+        s = scales[k] * ATLAS_SCALE
         im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
         a = np.array(im); a[..., 3] = np.where(a[..., 3] > 110, 255, 0); im = Image.fromarray(a)
         packed.append((k, i, im))
 # simple shelf packing
-W = 1024; x = y = sh = 0
+W = 2048; x = y = sh = 0
 pos = []
 for k, i, im in packed:
     if x + im.width + 2 > W:

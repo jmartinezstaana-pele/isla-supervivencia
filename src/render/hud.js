@@ -11,6 +11,7 @@ import { drawWorldMap } from '../ui/worldmap.js';
 import { SLOTS } from '../systems/inventory.js';
 import { PixelCanvas, rgb } from '../gfx/pixel.js';
 import { C } from '../gfx/palette.js';
+import { uiTransform } from '../core/display.js';
 
 export const FONT = "'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
 export const font = (size, bold = true) => `${bold ? 'bold ' : ''}${size}px ${FONT}`;
@@ -80,7 +81,7 @@ export function icon(c, img, x, y, s = 2) {
 export function drawHud(c, g) {
   const p = g.player;
   const I = statIcons();
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   c.imageSmoothingEnabled = false;
 
   // --- Barras de estado.
@@ -363,7 +364,7 @@ function drawCharacter(c, g) {
 /** Pantalla del impacto tras el aterrizaje: zona, daño y estado del avión. */
 export function drawImpact(c, g) {
   const im = g.impact;
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   const flash = Math.max(0, 1 - im.t / 0.8);
   c.fillStyle = `rgba(0, 0, 0, ${(0.45 + flash * 0.55).toFixed(2)})`;
   c.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -401,7 +402,7 @@ function drawDebug(c, g) {
 
 /** Pantalla de carga con la ilustración de la selva de Javier. */
 export function drawLoading(c, img) {
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  uiTransform(c);
   c.fillStyle = '#000';
   c.fillRect(0, 0, VIEW_W, VIEW_H);
   if (img) {

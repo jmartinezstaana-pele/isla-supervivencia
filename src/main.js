@@ -12,7 +12,8 @@ import { startLoop } from './core/loop.js';
 import { setupScreen } from './core/screen.js';
 import { Audio } from './core/audio.js';
 import { Game, ZONE_NAMES } from './game.js';
-import { scaleAtlas, tribalAtlas, boarFrames, crabFrames } from './gfx/characters.js';
+import { tribalAtlas, boarFrames, crabFrames } from './gfx/characters.js';
+import { CharacterSheet } from './gfx/charSprite.js';
 import { flameFrames } from './gfx/props.js';
 import { buildIcons } from './gfx/icons.js';
 import { drawLoading } from './render/hud.js';
@@ -40,7 +41,8 @@ async function boot() {
   await nextFrame();
   await nextFrame();
 
-  const player = scaleAtlas(atlas, atlasFrames);
+  // Atlas del protagonista a resolución completa (144 px de alto, sin reducir).
+  const player = new CharacterSheet(atlas, atlasFrames);
   const sprites = {
     player, playerBase: player, tribe: tribalAtlas(player), boar: boarFrames(), crab: crabFrames(),
     flames: { big: flameFrames(1.2), small: flameFrames(0.55) }, icons: buildIcons(),

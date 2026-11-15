@@ -4,6 +4,7 @@
 // van en anillos escalonados, como en el pixel art.
 
 import { LOW_W, LOW_H } from '../config.js';
+import { worldScreen } from '../core/display.js';
 
 export class Lighting {
   constructor() {
@@ -34,7 +35,18 @@ export class Lighting {
     c.fillStyle = `rgb(${a[0]}, ${a[1]}, ${a[2]})`;
     c.fillRect(0, 0, LOW_W, LOW_H);
     const dark = Math.max(0, 1 - (a[0] * 0.3 + a[1] * 0.5 + a[2] * 0.2) / 255);
-    if (dark > 0.08) {
+    if (dark <= 0.08) {
+      // Sin luces que sumar: basta multiplicar por el color ambiente (más barato
+      // que componer el lienzo de luz).
+      l.save();
+      worldScreen(l);
+      l.globalCompositeOperation = 'multiply';
+      l.fillStyle = `rgb(${a[0]}, ${a[1]}, ${a[2]})`;
+      l.fillRect(0, 0, LOW_W, LOW_H);
+      l.restore();
+      return;
+    }
+    {
       c.globalCompositeOperation = 'lighter';
       const k = Math.min(1, dark * 1.3);
       for (const p of game.world.lights) {
@@ -51,7 +63,7 @@ export class Lighting {
       this.light(c, player.x - cam.ix, player.y - 20 - cam.iy, player.torchOn ? 0 : 68, [150, 150, 175], k * 0.7);
     }
     l.save();
-    l.setTransform(1, 0, 0, 1, 0, 0);
+    worldScreen(l);
     l.globalCompositeOperation = 'multiply';
     l.drawImage(this.canvas, 0, 0);
     l.restore();

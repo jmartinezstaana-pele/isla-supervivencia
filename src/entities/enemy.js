@@ -364,17 +364,12 @@ export class Warrior {
   }
 
   draw(l, game, t) {
-    const img = game.sprites.tribe.image;
+    const sheet = game.sprites.tribe;
     const side = Math.cos(this.angle) >= 0 ? 1 : -1;
     const flip = ['hurt', 'up', 'reach'].includes(this.anim.name) ? side : 1;
     if (this.dead) {
       // Tumbado en el suelo.
-      const [sx, sy, sw, sh] = this.anim.frames.hurt[0];
-      l.save();
-      l.translate(Math.round(this.x), Math.round(this.y - 4));
-      l.rotate(Math.PI / 2 * side);
-      l.drawImage(img, sx, sy, sw, sh, -Math.round(sw / 2), -sh + 6, sw, sh);
-      l.restore();
+      drawFrame(l, sheet, { name: 'hurt', index: 0 }, this.x, this.y + 2, 1, 1, (Math.PI / 2) * side);
       return;
     }
     // Lanza (detrás si mira hacia arriba).
@@ -392,7 +387,7 @@ export class Warrior {
     if (this.facing === 'up') spear();
     const telegraph = this.state === 'attack' && this.attackT < 0.42 && Math.floor(this.attackT * 16) % 2 === 0;
     if (telegraph) l.filter = 'brightness(1.8)';
-    drawFrame(l, img, this.anim.frame, this.x, this.y, flip);
+    drawFrame(l, sheet, this.anim, this.x, this.y, flip);
     if (telegraph) l.filter = 'none';
     if (this.facing !== 'up') spear();
     // Plumas.

@@ -2,7 +2,7 @@
 // Todos los fotogramas miran a la derecha; para la izquierda se voltean al dibujar.
 // El ancla es el centro del borde inferior (los pies).
 
-import { SPRITE_SCALE } from '../config.js';
+import { drawCharacter } from '../gfx/charSprite.js';
 
 export class Animator {
   constructor(frames) {
@@ -36,12 +36,11 @@ export class Animator {
   }
 }
 
-/** Dibuja un fotograma con los pies en (x, y) mirando a `facing` (1 derecha, −1 izquierda). */
-export function drawFrame(ctx, atlas, frame, x, y, facing, scale = SPRITE_SCALE) {
-  const [sx, sy, sw, sh] = frame;
-  ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.scale(facing * scale, scale);
-  ctx.drawImage(atlas, sx, sy, sw, sh, -Math.round(sw / 2), -sh, sw, sh);
-  ctx.restore();
+/**
+ * Dibuja el fotograma actual de `anim` (hoja `sheet`, ver gfx/charSprite.js) con
+ * los pies en (x, y) mirando a `facing` (1 derecha, −1 izquierda). Con escala 1
+ * se copia 1:1 sobre los píxeles reales de la pantalla.
+ */
+export function drawFrame(ctx, sheet, anim, x, y, facing, scale = 1, rotation = 0) {
+  drawCharacter(ctx, sheet, anim.name, anim.index, x, y, facing, scale, rotation);
 }

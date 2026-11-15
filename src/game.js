@@ -15,6 +15,8 @@ import { Lighting } from './render/lighting.js';
 import { drawHud, drawImpact } from './render/hud.js';
 import { DEFAULT_ATTRS } from './data/attributes.js';
 import { DEFAULT_COLORS, recolorAtlas, partAverage } from './gfx/recolor.js';
+import { CharacterSheet } from './gfx/charSprite.js';
+import { uiTransform } from './core/display.js';
 import { LANDING_RESULTS } from './world/landingMap.js';
 import { TitleScreen } from './ui/title.js';
 import { CreationScreen } from './ui/creation.js';
@@ -143,7 +145,7 @@ export class Game {
    */
   newGame({ attrs = DEFAULT_ATTRS, colors = DEFAULT_COLORS } = {}) {
     this.character = { attrs: { ...attrs }, colors: { ...colors } };
-    this.sprites.player = { image: recolorAtlas(this.sprites.playerBase, colors), frames: this.sprites.playerBase.frames };
+    this.sprites.player = new CharacterSheet(recolorAtlas(this.sprites.playerBase, colors), this.sprites.playerBase.frames);
     this.resetWorld();
   }
 
@@ -668,6 +670,7 @@ export class Game {
   }
 
   render() {
+    uiTransform(this.ctx);
     const menu = this.screens[this.screen];
     if (menu) {
       menu.render(this.ctx);

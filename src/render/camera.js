@@ -3,6 +3,7 @@
 
 import { LOW_W, LOW_H } from '../config.js';
 import { clamp, smoothFactor } from '../core/math.js';
+import { display } from '../core/display.js';
 
 const LOOK_AHEAD = 0.35;  // segundos de movimiento que se adelanta la cámara
 const LOOK_MAX = 70;      // px de mundo
@@ -68,8 +69,9 @@ export class Camera {
     this.y = maxY > 0 ? clamp(this.y, 0, maxY) : maxY / 2;
   }
 
-  /** Aplica la transformación de mundo al buffer de baja resolución. */
+  /** Aplica la transformación de mundo al buffer del mundo (escala entera K). */
   apply(ctx) {
-    ctx.setTransform(1, 0, 0, 1, -this.ix, -this.iy);
+    const K = display.K;
+    ctx.setTransform(K, 0, 0, K, -this.ix * K + display.ox, -this.iy * K + display.oy);
   }
 }

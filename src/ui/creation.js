@@ -7,8 +7,8 @@ import { VIEW_W, VIEW_H } from '../config.js';
 import { text, panel } from '../render/hud.js';
 import { ATTRS, ATTR_MAX, ATTR_POINTS, DEFAULT_ATTRS, pointsUsed, statLines } from '../data/attributes.js';
 import { COLOR_OPTIONS, COLOR_PARTS, DEFAULT_COLORS, recolorAtlas } from '../gfx/recolor.js';
-import { PixelCanvas } from '../gfx/pixel.js';
-import { C } from '../gfx/palette.js';
+import { CharacterSheet } from '../gfx/charSprite.js';
+import { display } from '../core/display.js';
 import { cover, button, drawCursor, inRect } from './widgets.js';
 
 const DIRS = [['walk_down', 'De frente'], ['walk', 'Derecha'], ['walk_up', 'De espaldas'], ['walk_left', 'Izquierda']];
@@ -18,17 +18,6 @@ const ROW_START = ROW_RANDOM + 1;
 
 const LEFT = { x: 40, y: 96, w: 620, h: 580 };
 const RIGHT = { x: 700, y: 96, w: 540, h: 580 };
-
-/** Peana de hierba y arena para la vista previa (pixel art). */
-function pedestal() {
-  const p = new PixelCanvas(44, 14);
-  p.ellipse(22, 7, 21, 6, C.dirt[1]);
-  p.ellipse(22, 6, 20, 5, C.grass[2]);
-  p.ellipse(22, 5, 18, 4, C.grass[3]);
-  for (let i = 0; i < 14; i++) p.set(4 + ((i * 7) % 36), 3 + ((i * 3) % 5), C.grass[4]);
-  p.outline(C.outline);
-  return p.toCanvas();
-}
 
 export class CreationScreen {
   constructor(game) {
@@ -40,7 +29,7 @@ export class CreationScreen {
     this.msg = null;
     this.preview = null;
     this.previewKey = '';
-    this.base = pedestal();
+    this.previewSheet = null;
   }
 
   enter() {
@@ -58,6 +47,7 @@ export class CreationScreen {
     const key = JSON.stringify(this.colors);
     if (key !== this.previewKey) {
       this.preview = recolorAtlas(this.game.sprites.playerBase, this.colors);
+      this.previewSheet = new CharacterSheet(this.preview, this.game.sprites.playerBase.frames);
       this.previewKey = key;
     }
     return this.preview;
@@ -268,27 +258,42 @@ export class CreationScreen {
   renderLook(c) {
     panel(c, RIGHT.x, RIGHT.y, RIGHT.w, RIGHT.h, 0.8);
     text(c, 'ASPECTO', RIGHT.x + 16, RIGHT.y + 26, { size: 22, color: '#ffe8a8', outline: 5 });
-    // Vista previa: el personaje gira por las 4 direcciones andando.
-    const atlas = this.previewAtlas();
+    // Vista previa: el personaje gira por las 4 direcciones andando. Se dibuja el
+    // sprite a resolución completa con una escala entera de píxeles reales (×1 a
+    // 720p, ×2 a 1080p), sin suavizado, sobre un fondo neutro.
+    this.previewAtlas();
+    const sheet = this.previewSheet;
     const [anim, label] = this.previewDir;
-    const frames = this.game.sprites.playerBase.frames[anim];
-    const f = frames[Math.floor(this.t * 8) % frames.length];
-    const S = 5;
-    const cx = RIGHT.x + RIGHT.w / 2;
-    const feet = RIGHT.y + 270;
-    c.imageSmoothingEnabled = false;
-    // Fondo de la vista previa: claro de selva.
+    const frames = sheet.frames[anim];
+    const fi = Math.floor(this.t * 8) % frames.length;
     const pr = { x: RIGHT.x + 16, y: RIGHT.y + 46, w: RIGHT.w - 32, h: 254 };
-    const grad = c.createLinearGradient(0, pr.y, 0, pr.y + pr.h);
-    grad.addColorStop(0, 'rgba(40, 70, 40, 0.55)');
-    grad.addColorStop(1, 'rgba(20, 40, 24, 0.85)');
+    const S = display.S;
+    const tallest = Math.max(...frames.map((f) => f[3]));
+    const f = Math.max(1, Math.floor((pr.h * S - 44 * S) / tallest));
+    const cx = pr.x + pr.w / 2;
+    const feet = pr.y + pr.h - 22;
+    const grad = c.createRadialGradient(cx, pr.y + pr.h * 0.55, 10, cx, pr.y + pr.h * 0.55, pr.w * 0.62);
+    grad.addColorStop(0, '#5a6068');
+    grad.addColorStop(1, '#2a2e34');
     c.fillStyle = grad;
     c.fillRect(pr.x, pr.y, pr.w, pr.h);
-    c.drawImage(this.base, cx - this.base.width * 2.5, feet - this.base.height * 2.5 + 4, this.base.width * 5, this.base.height * 5);
-    const [sx, sy, sw, sh] = f;
-    c.drawImage(atlas, sx, sy, sw, sh, Math.round(cx - (sw * S) / 2), feet - sh * S, sw * S, sh * S);
+    c.strokeStyle = 'rgba(0,0,0,0.5)';
+    c.lineWidth = 2;
+    c.strokeRect(pr.x + 1, pr.y + 1, pr.w - 2, pr.h - 2);
+    // Suelo: sombra elíptica bajo los pies.
+    c.fillStyle = 'rgba(10, 12, 16, 0.45)';
+    c.beginPath();
+    c.ellipse(cx, feet - 1, 15 * f / S + 8, 5 * f / S + 2, 0, 0, Math.PI * 2);
+    c.fill();
+    const spr = sheet.scaled(anim, fi, f);
+    c.save();
+    c.setTransform(1, 0, 0, 1, Math.round(cx * S), Math.round(feet * S));
+    c.imageSmoothingEnabled = false;
+    c.drawImage(spr.canvas, -spr.ax, -spr.ay);
+    c.restore();
     text(c, label, pr.x + pr.w - 10, pr.y + 18, { size: 14, align: 'right', color: '#c8d0c0', bold: false, outline: 3 });
-    this.previewRect = { x: cx - (sw * S) / 2, y: feet - sh * S, w: sw * S, h: sh * S };
+    const [, , sw, sh] = frames[fi];
+    this.previewRect = { x: cx - (sw * f) / S / 2, y: feet - (sh * f) / S, w: (sw * f) / S, h: (sh * f) / S, scale: f };
     // Colores.
     const m = this.game.input.mouse;
     COLOR_PARTS.forEach(([part, name], i) => {

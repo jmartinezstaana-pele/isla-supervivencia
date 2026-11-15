@@ -13,6 +13,7 @@ import {
   LAND_PX, LANDING_RESULTS, paintLandingMap, landingZoneAt,
 } from '../world/landingMap.js';
 import { ZONES } from '../world/worldMap.js';
+import { uiTransform } from '../core/display.js';
 
 const MX = 8;                 // posición del mapa en el buffer de baja resolución
 const MY = 16;
@@ -225,7 +226,7 @@ export class LandingScreen {
   renderBackdrop(c, t) {
     this.prepare();
     this.drawLow(t, false);
-    c.setTransform(1, 0, 0, 1, 0, 0);
+    uiTransform(c);
     c.imageSmoothingEnabled = false;
     c.drawImage(this.low, 0, 0, VIEW_W, VIEW_H);
   }
@@ -324,7 +325,7 @@ export class LandingScreen {
   render(c) {
     const t = this.t;
     this.drawLow(t, true);
-    c.setTransform(1, 0, 0, 1, 0, 0);
+    uiTransform(c);
     c.imageSmoothingEnabled = false;
     c.drawImage(this.low, 0, 0, VIEW_W, VIEW_H);
     const S = PIXEL_SCALE;
