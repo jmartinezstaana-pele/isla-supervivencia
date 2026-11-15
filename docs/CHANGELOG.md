@@ -1,5 +1,62 @@
 # Historial de cambios
 
+## Sesión 4 — Fase 2: flujo de inicio y atributos (15/11/2026)
+
+### Pantallas
+- **Título** con `avion.jpg`: *Nueva partida*, *Continuar* (desactivado mientras no haya partida guardada; se comprueba `localStorage` dentro de try/catch) y *Controles* (lista de teclas). Se maneja con teclado y ratón; cursor de flecha en pixel art.
+- **Creación de personaje** con `paisaje.jpg` de fondo:
+  - **10 puntos** entre Fuerza, Agilidad, Inteligencia y Sigilo/Percepción, de 0 a 6 cada uno, con descripción de cada atributo y un recuadro con los efectos calculados (vida, daño, velocidad, salto, escalada, ruido, detección, riesgo de enfermar y nivel de pistas);
+  - colores de **pelo/pañuelo, piel, camiseta y pantalón** (5–7 opciones cada uno) con **recoloreado** del sprite por HSV conservando la luminosidad (TRASPASO §2.6);
+  - **vista previa animada** a ×5, andando y girando por las 4 direcciones sobre una peana de hierba;
+  - botón *Aleatorio* (X); no deja empezar con puntos sin repartir.
+- **Intro** de tres pantallas con texto a máquina de escribir y bandas de cine: el vuelo A-07, la alarma de «¡sin combustible!» (con destellos rojos) y la isla vista desde arriba. Esc la salta.
+- **Aterrizaje cenital** (`src/ui/landing.js`, `src/world/landingMap.js`):
+  - **mapa de la isla entera** pintado en pixel art a 640 × 360: el trozo jugable sale de sus datos reales y el resto (monte con cumbre nevada, campamento militar, acantilados, bahía, manglar y selva del norte) se pinta de forma aproximada, bajo **niebla** y con el letrero **«zona sin explorar»**;
+  - avioneta vista desde arriba con camuflaje y hélice parada, sombra en el suelo que marca dónde tocarás tierra (con anillo de color según el riesgo), humo a ratos, nubes por encima y sombras de nubes en el suelo;
+  - panel con **«SIN COMBUSTIBLE»** parpadeando, **altímetro** de esfera y lectura digital (empieza en 1.250 m y baja 20 m/s), indicador de combustible vacío, zona bajo el avión con riesgo, daño y estado del avión, y leyenda;
+  - **A/D** gira, **Espacio** aterriza; bajada final con bandazos, destello, temblor y restos del color del suelo;
+  - en las zonas sin explorar no deja aterrizar; sin altura sobre ellas, amerizaje forzoso.
+- **Impacto:** cartel con la zona, el daño y el estado del avión sobre el mundo ya colocado. Enter para jugar.
+
+### Resultado del aterrizaje (TRASPASO §2.4)
+- Playa −10 (avión reparable), selva −30, campamento de la tribu −25 (la tribu acude a investigar), meseta de las ruinas −45 (apareces arriba), mar sin daño (el avión se hunde, empiezas nadando cerca de la costa y los restos con el botín llegan a la playa).
+- Los **restos del avión con el botín inicial** se colocan donde caes: se busca un hueco en la misma zona y se despeja la vegetación de debajo.
+- El estado del avión queda guardado en la partida (`game.plane`) para el final del avión (sesión 10).
+
+### Atributos con efecto real (`src/data/attributes.js`, fórmulas de §1.5)
+- **Fuerza:** vida máxima 80 + F × 12; daño × (1 + F × 0,12).
+- **Agilidad:** velocidad × (0,88 + A × 0,04); salto 2,6 + A × 0,25 casillas; escalada 70 + A × 10 px/s con un gasto de 30 − A × 3,5 de aguante por segundo.
+- **Inteligencia:** pistas de fabricación y de plantas en la mochila (nada con 0–1, qué se puede hacer con 2–3, ingredientes con 4 o más); riesgo de intoxicación × (1 − I × 0,13) al comer carne cruda, cangrejo o bayas.
+- **Sigilo/Percepción:** radio de ruido × (1 − S × 0,1); ritmo de detección enemiga × (1 − S × 0,09).
+- **Intoxicación** (nuevo estado): durante 30 s quita 1 de vida cada 2,5 s y da más sed; aparece en el HUD. La hierba medicinal la cura.
+- **Pantalla de personaje (P):** retrato con los colores elegidos, atributos, efectos, vida, estado y avión.
+- Al morir reapareces con la **mitad de la vida máxima** (antes, 60 fijos).
+
+### Pruebas
+- 18 pruebas de Playwright (6 nuevas en `tests/inicio.spec.mjs`):
+  - recorrido completo **con teclado** título → creación → intro → aterrizaje en la playa → juego (incluye que *Continuar* se salta, que no se puede empezar con puntos libres y que el protagonista lleva la camiseta elegida);
+  - resultado del aterrizaje en selva, meseta, campamento (la tribu acude), mar y zona sin explorar, y amerizaje forzoso sin altura;
+  - la vista previa cambia de color y gira por las 4 direcciones;
+  - **dos personajes muy distintos** (F4 A6 I0 S0 frente a F0 A0 I4 S6): vida 128 frente a 80, salto 4,1 frente a 2,6 casillas medido en el juego, velocidad, ruido y detección medida con un guerrero real;
+  - Inteligencia (riesgo de intoxicarse, pistas, curación) y la pantalla P;
+  - capturas de título, creación, intro, aterrizaje, llegada a la playa, personaje y mochila.
+- Rendimiento: el mapa del aterrizaje se pinta una vez (≈0,16 s, al entrar en la intro); 3–6 ms por fotograma en el aterrizaje y la creación.
+
+### Decisiones tomadas sin consultar (menores, fáciles de cambiar)
+- **Pregunta 7 (color de pelo):** se aplica al **pañuelo**, como recomendaba §1.5. Se ha separado camiseta y pantalón.
+- **Pregunta 3b:** se mantiene el movimiento libre en 8 direcciones.
+- **Zonas del mapa del aterrizaje:** el trozo jugable va al suroeste de la isla, como pide §2.4. La meseta de las ruinas hace de «montaña» (−45) hasta que exista el monte.
+- **Amerizaje lejos de la costa conocida:** la corriente te lleva a la costa oeste del trozo jugable.
+- **Atajo de pruebas:** `window.__isla.start()` sigue empezando directamente en la playa con el personaje por defecto (F3 A3 I2 S2), sin aterrizaje.
+- **Velocidad por Agilidad** (no estaba en §1.5): ±4 % por punto alrededor de Agilidad 3.
+
+### Problemas conocidos y límites
+- *Continuar* no hace nada útil todavía: no hay guardado (sesión 8).
+- El mapa del aterrizaje es aproximado fuera del trozo jugable; en la sesión 5 saldrá del mapa grande real.
+- El recoloreado separa pañuelo y camiseta por la altura en el fotograma: en algunos fotogramas agachado o saltando se cuela algún píxel de un color en el otro.
+- La intoxicación y las pistas están listas, pero no hay fabricación todavía para usarlas a fondo.
+- Solo se ha probado en Chromium.
+
 ## Arreglo entre sesiones: pierna del protagonista (15/11/2026)
 
 - Javier: "en muchos movimientos se le desaparece una pierna". El script de recorte (`tools/extract_sprites.py`) confundía con el fondo la pierna trasera, pintada en verde casi negro.
