@@ -143,9 +143,33 @@ Cada decisión lleva una etiqueta:
 ### 2.1 Tecnología
 
 - **[ACORDADO-DELEGADO]** Juego **para navegador**, entregado como **un solo archivo HTML** que se abre **con doble clic, sin instalar nada**, y se juega con **teclado y ratón**.
-- **[ACORDADO-DELEGADO]** **Vista lateral en 2D** (estilo Terraria o Dead Cells) para jugar, y **mapa cenital** solo para el **aterrizaje** y como **mapa del juego**.
-- **[ACORDADO-USUARIO] (15/11/2026)** Javier confirma: **juego de navegador en un solo HTML** y **vista lateral 2D**.
-- *(Resuelto)* Las hojas `Andar.png` y `Correr.png` traen **4 direcciones** (arriba, abajo, izquierda y derecha), lo que también encajaría con una vista cenital. Javier las envió **después** de delegar la elección de la vista lateral. La vista lateral sigue en pie, pero conviene confirmarla con él.
+- **[ACORDADO-USUARIO] (15/11/2026)** Javier confirma: **juego de navegador en un solo HTML**.
+- **[ACORDADO-USUARIO] (15/11/2026, tras ver la sesión 1) — CAMBIO DE VISTA: VISTA CENITAL.** Después de probar la versión lateral, Javier dijo, con sus palabras: *"el juego me lo ha hecho de movimiento atrás y alante, y yo no quiero eso, yo quiero un juego abierto que se pueda mover en todas las posiciones como un Pokémon"*. Por tanto:
+  - El juego es **cenital (vista desde arriba)**, con **movimiento en todas las direcciones** por una isla abierta, al estilo Pokémon.
+  - **Queda anulada** la vista lateral 2D, acordada antes por delegación y "confirmada" en la sesión 1.
+  - El mapa cenital del aterrizaje y el mapa del juego ahora encajan de forma natural: son la misma isla vista desde arriba.
+  - Las hojas `Andar.png` y `Correr.png` traen 4 direcciones; el atlas ya se ha regenerado con ellas (§2.6).
+- **[RECOMENDACIÓN] Tipo de movimiento:** **libre en 8 direcciones** (como un Zelda o un Stardew Valley), **no por casillas** como en el Pokémon clásico. El movimiento libre funciona mejor para el sigilo, las persecuciones, el combate y apuntar con el ratón. La animación usa la dirección más cercana de las 4 disponibles. **[PENDIENTE]** Confirmar con Javier si quiere libre o por casillas.
+
+**[RECOMENDACIÓN] Cómo mantener las plataformas en vista cenital.** Las plataformas son una petición expresa de Javier ([ACORDADO-USUARIO]: escalar la montaña para llegar a una zona, persecuciones por acantilados), así que no se pueden perder con el cambio de vista. Propuesta:
+
+- **Niveles de altura:** el mapa tiene alturas (playa 0, selva 1, mesetas 2–3, cumbre 5…). Entre ellas hay **paredes de acantilado** que solo se suben **escalando**:
+  - mantener la tecla contra la pared;
+  - gasta aguante según la Agilidad;
+  - mientras se sube, la vista se mantiene, pero el personaje se desplaza "hacia arriba" en la pared y se dibuja con el sprite `up` (brazos arriba).
+- **Saltos con arco y sombra:** el personaje salta (Espacio) por encima de huecos, ríos o grietas. Se ve la sombra en el suelo. La distancia depende de la Agilidad.
+- **Bajar salientes:** se puede bajar a un nivel inferior saltando por un saliente (como los salientes de Pokémon). Si la caída es grande, hace daño.
+- **Garfio:** se lanza hacia un punto de anclaje marcado en un nivel superior o al otro lado de un abismo.
+- **Acantilados del viento:**
+  - caminos estrechos al borde del mar;
+  - **suelo que se derrumba**;
+  - ráfagas que empujan;
+  - huecos que hay que saltar;
+  - si caes, acabas en el agua con tiburones.
+  - Las **persecuciones** suceden aquí: te persigue la tribu y tienes que correr, saltar y escalar.
+- **Lianas y escaleras:** son conexiones entre niveles que no gastan aguante.
+
+**[RECOMENDACIÓN] Sigilo en cenital.** Encaja de forma natural: conos de visión dibujados en el suelo, hierba alta, sombras y luz, y ruido con radio visible al estilo de los Metal Gear clásicos.
 
 **[RECOMENDACIÓN] Stack**
 
@@ -198,8 +222,8 @@ Las etiquetas de la columna "Origen" son las de §0.
 | Bucle, input y estados de pantalla | — | Estados: título → creación → intro → aterrizaje → impacto → juego → muerte / final. Paso de tiempo limitado (dt ≤ 1/30) y física subdividida para evitar atravesar tiles. |
 | Creación de personaje | ACORDADO-USUARIO / DELEGADO | 4 atributos, 10 puntos, colores de pelo, piel y ropa, vista previa en vivo. |
 | Aterrizaje cenital | ACORDADO-USUARIO / DELEGADO | Mapa de la isla, avión planeando con "SIN COMBUSTIBLE" parpadeando, altímetro, giro con A/D y Espacio para aterrizar. El resultado depende de la zona. |
-| Mundo lateral por tiles | ACORDADO-DELEGADO (vista) | Ver la propuesta de isla en §2.4. |
-| Controlador del jugador | ACORDADO-USUARIO (saltar y trepar) | Correr, saltar según Agilidad, agacharse, **escalar paredes de roca con aguante**, escaleras y lianas, **garfio**, nadar, voltereta, daño por caída. |
+| Mundo cenital por tiles con alturas | ACORDADO-USUARIO (vista cenital, abierto, todas las direcciones) | Ver la propuesta de isla en §2.4 y las alturas en §2.1. |
+| Controlador del jugador | ACORDADO-USUARIO (moverse en todas las direcciones, saltar y trepar) | Movimiento en 8 direcciones, correr, saltar huecos según Agilidad (arco y sombra), agacharse, **escalar paredes de acantilado con aguante**, bajar salientes, escaleras y lianas, **garfio**, nadar, voltereta, daño por caída. |
 | Necesidades | ACORDADO-DELEGADO | Hambre, sed y energía, más estados: veneno e intoxicación. |
 | Inventario y recolección | ACORDADO-USUARIO / DELEGADO | Peso limitado por Fuerza. Golpear árboles y rocas; recoger arbustos y plantas. |
 | Fabricación y mezclas | ACORDADO-USUARIO (ayudas al mezclar según Inteligencia) | Ver la propuesta en §2.5. |
@@ -215,22 +239,28 @@ Las etiquetas de la columna "Origen" son las de §0.
 | HUD e interfaz en español | — | Barras de vida, hambre, sed y energía; reloj; zona; aviso de interacción; detección. |
 | Audio | [RECOMENDACIÓN] | Efectos sencillos con WebAudio y un ambiente de mar. Opcional. |
 
-### 2.4 Propuesta de isla [RECOMENDACIÓN, no validada]
+### 2.4 Propuesta de isla [RECOMENDACIÓN, no validada] — revisada para vista cenital
 
-Mundo de **1000 × 140 tiles de 20 px**, con el nivel del mar en la fila 100. La isla se recorre de oeste a este, y cada x del mundo lateral se corresponde con una x del mapa cenital.
+> La primera versión de esta sección organizaba la isla en franjas de oeste a este para la vista lateral. **Con la vista cenital ([ACORDADO-USUARIO], §2.1) la isla es un mapa 2D abierto.** Se mantienen las zonas y su contenido, pero ahora son **regiones del mapa** conectadas en todas las direcciones.
 
-| Tiles x | Zona | Contenido | Peligro |
+**Tamaño propuesto:** unos **200 × 160 tiles de 32 px**, con mar alrededor. Cada tile guarda tipo de suelo, altura y objetos encima. El mapa cenital del aterrizaje y el mapa del juego son una versión reducida de este mismo mapa.
+
+**Disposición orientativa:**
+
+| Situación | Zona | Contenido | Peligro |
 |---|---|---|---|
-| 0–62 | Mar abierto oeste | Tiburones | Alto |
-| 62–135 | Playa del naufragio | Palmeras, cocos, cangrejos. Mejor zona para aterrizar: **el avión solo se puede reparar si aterrizó en arena**. | Bajo |
-| 135–330 | Selva | Árboles, lianas, hierba alta, arbustos, **estanque de agua dulce**, jabalíes, serpientes. **Campamento de un explorador en la copa de un árbol** (arco y nota). | Medio |
-| 330–455 | Poblado de la tribu | Cabañas sobre pilotes con escaleras, torre de vigía, hogueras, cofres, guerreros patrullando y **choza del jefe con un bidón de combustible**. | Alto |
-| 455–645 | Monte (cumbre nevada) | Cara oeste con **paredes de roca de 8 a 12 tiles** que exigen Agilidad o garfio. **Antena en la cumbre** (final de la radio). | Medio |
-| 465–640 (bajo tierra) | Cuevas del monte | **Ruta alternativa sin escalar**, oscura (hace falta antorcha). Guarida del depredador, serpientes, bidón, tarjeta de acceso y esqueleto de un soldado con nota. | Alto |
-| 645–765 | Campamento militar abandonado + búnker | Tiendas y cajas inspiradas en `3. Paisaje.jpg`, trampas y vigilantes de élite. **Búnker** con puerta que se abre con tarjeta. Dentro: radio rota, batería, cables, bidón y notas. | Alto |
-| 765–880 | Acantilados del viento | Pilares con huecos de 3 a 7 tiles, **plataformas que se derrumban**, puentes, lianas para salir del agua, tiburones debajo y nidos con huevos. Escenario de las **persecuciones**. | Medio-alto |
-| 880–965 | Bahía este | Embarcadero (final de la balsa), **helipuerto** (rescate por radio) y barca naufragada con cofre. | Bajo |
-| 965–1000 | Mar abierto este | Tiburones | Alto |
+| Alrededor | Mar abierto | Aguas profundas con tiburones. Bancos de arena cerca de la costa. | Alto |
+| Suroeste | Playa del naufragio | Palmeras, cocos, cangrejos. Mejor zona para aterrizar: **el avión solo se puede reparar si aterrizó en arena**. | Bajo |
+| Oeste y centro | Selva | Árboles, lianas, hierba alta, arbustos, río y **estanque de agua dulce**, jabalíes, serpientes. **Campamento de un explorador sobre una plataforma en los árboles** (arco y nota). | Medio |
+| Sur o sureste | Manglar / pantano (bioma nuevo, §1.6) | Agua poco profunda que ralentiza, niebla frecuente, serpientes. | Medio |
+| Norte de la selva | Poblado de la tribu | Cabañas, torre de vigía, hogueras, cofres, guerreros patrullando y **choza del jefe con un bidón de combustible**. Rodeado de hierba alta para entrar a escondidas. | Alto |
+| Centro-norte | Monte (cumbre nevada) | Terrazas a varias alturas separadas por **paredes de acantilado** que exigen Agilidad o garfio. Frío en la cumbre. **Antena en la cumbre** (final de la radio). | Medio |
+| Bajo el monte | Cuevas del monte | **Ruta alternativa sin escalar**, oscura (hace falta antorcha). Se entra por una boca y se sale en otra altura del monte. Guarida del depredador, serpientes, bidón, tarjeta de acceso y esqueleto de un soldado con nota. | Alto |
+| Este del monte | Campamento militar abandonado + búnker | Tiendas y cajas inspiradas en `3. Paisaje.jpg`, trampas y vigilantes de élite. **Búnker** (interior por separado o planta subterránea) con puerta que se abre con tarjeta. Dentro: radio rota, batería, cables, bidón y notas. | Alto |
+| Noreste | Acantilados del viento | Caminos estrechos al borde del mar a distintas alturas, **suelo que se derrumba**, huecos que saltar, puentes, lianas para salir del agua, tiburones debajo y nidos con huevos. Escenario de las **persecuciones**. | Medio-alto |
+| Este | Bahía este | Embarcadero (final de la balsa), **helipuerto** (rescate por radio) y barca naufragada con cofre. | Bajo |
+
+**Interiores** (búnker, cuevas, cabañas) [RECOMENDACIÓN]: pueden ser mapas aparte a los que se entra por una puerta, al estilo Pokémon, o zonas del mismo mapa con el techo oculto. Para la cueva y el búnker se recomiendan mapas aparte: es más simple y permite oscuridad total.
 
 **Resultado del aterrizaje según la zona** [RECOMENDACIÓN]:
 
@@ -306,9 +336,11 @@ La pantalla final muestra estadísticas: días sobrevividos, eliminaciones, elim
 
 ### 2.6 Sprites y recoloreado [RECOMENDACIÓN]
 
-- Todos los fotogramas del atlas **miran a la derecha**; para ir a la izquierda se voltean al dibujar.
+- **Actualización 15/11/2026 (vista cenital):** el atlas se ha regenerado con las **4 direcciones** de andar y correr, sacadas de las hojas de Javier. Animaciones: `walk_down`, `walk_up`, `walk_left` y `walk` (= derecha), 6 fotogramas cada una; `run_down`, `run_up`, `run_left` y `run` (= derecha), 8 fotogramas cada una. Se mantienen los nombres `walk` y `run` para no romper el código existente. Atlas: 1024 × 481, 90 fotogramas.
+- Las demás animaciones (`jump`, `crouch`, `roll`, `dodge`, `hurt`, `pick`, `reach`, `up`, `idle`) **solo existen de lado**, mirando a la derecha. Para arriba y abajo hay que usar un sustituto: por ejemplo, la animación lateral más cercana o el fotograma de andar con un efecto (sombra, escala o parpadeo). **[PENDIENTE]** Preguntar a Javier si puede conseguir esas animaciones en 4 direcciones.
+- Los fotogramas laterales **miran a la derecha**; para ir a la izquierda se voltean al dibujar (salvo `walk_left` y `run_left`, que ya existen).
 - **Ancla abajo en el centro** (los pies).
-- Altura de pie en el atlas: **96 px**. Pensado para dibujarse a **0,5 (48 px)**, con una caja de colisión del jugador de unos 16 × 40 px.
+- Altura de pie en el atlas: **96 px**. Pensado para dibujarse a **0,5 (48 px)**. En vista cenital, la caja de colisión debe cubrir **solo los pies** (por ejemplo, unos 18 × 10 px), con ordenación por la y de los pies para que el personaje pase por delante o por detrás de árboles y objetos.
 - **Recoloreado en tiempo de ejecución**, clasificando los píxeles por HSV:
 
 | Píxeles (HSV) | Se convierten en |
@@ -339,6 +371,11 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (después de la sesión 1): cambio a vista cenital.** Javier ha probado la versión lateral y la rechaza: quiere moverse en todas las direcciones, como en Pokémon (§2.1). De la sesión 1:
+> - **Se conserva:** build a un HTML (`build.mjs`), `package.json`, Playwright, `src/core/*` (input, bucle, RNG, pantalla, assets, matemáticas), cámara (hay que adaptarla para que siga en x e y por igual), HUD, la pausa y el panel de depuración.
+> - **Hay que rehacer para la vista cenital:** `src/world/physics.js` (gravedad y plataformas de un sentido), `src/world/testLevel.js`, `src/entities/player.js` (salto con gravedad, agacharse y nado laterales), parte de `worldRenderer.js` y las pruebas de humo que comprueban el movimiento lateral.
+> - El atlas ya trae las 4 direcciones (§2.6).
+>
 > **Actualización 15/11/2026 (sesión 1 de Claude Code):** Fases 0 y 1 terminadas. Hay build a un único HTML, pruebas de Playwright y un personaje que anda, corre, salta, se agacha, baja de plataformas y nada en un mundo de prueba. Detalle en `docs/CHANGELOG.md`. Lo que sigue en esta sección describe el estado anterior a la sesión 1.
 
 **No hay código del juego.** Se paró la implementación antes de escribir el motor. Lo que sí existe:
@@ -349,7 +386,7 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 | Archivo | Contenido |
 |---|---|
-| `assets/atlas.png` | 1024 × 263, RGBA, 42 fotogramas. Fondo eliminado: se recortaron los borrones negros y se dejó solo la figura principal. |
+| `assets/atlas.png` | (actualizado: 1024 × 481, 90 fotogramas, con 4 direcciones de andar y correr; ver §2.6) — versión original: 1024 × 263, RGBA, 42 fotogramas. Fondo eliminado: se recortaron los borrones negros y se dejó solo la figura principal. |
 | `assets/atlas.json` | `{ animación: [[x, y, ancho, alto], …] }`. Animaciones: `walk` 6, `run` 8, `jump` 6, `crouch` 4, `roll` 7, `dodge` 6, `hurt` 1, `pick` 1, `reach` 1, `up` 1, `idle` 1. |
 | `assets/avion.jpg` | 1280 px de ancho, unos 196 KB, a partir de `Avion.png`. |
 | `assets/paisaje.jpg` | 1280 px de ancho, unos 180 KB, a partir de `3. Paisaje.jpg`. |
@@ -367,7 +404,7 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
   - Separa el fondo oscuro por diferencia de color con el borde. Rellena huecos y elimina las zonas negras gruesas (los borrones) y las piezas sueltas.
   - Escala cada hoja con un factor propio para igualar el tamaño del personaje y empaqueta todo en el atlas.
   - Genera de paso unas imágenes `dbg_*.png` de control.
-- Descarta `Girar.png` y las filas norte/sur de andar y correr (no se necesitan en vista lateral).
+- Descarta `Girar.png`. **Actualización:** ahora también extrae las filas abajo, arriba e izquierda de andar y correr (vista cenital).
 - Limitación: las cajas de recorte y las escalas están fijadas para estas imágenes concretas. Si Javier cambia o añade hojas, hay que ajustarlas.
 
 ### 3.3 Decisiones tomadas
@@ -384,7 +421,7 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 - Secretos: búnker, ruinas y radio.
 - Partida de 30 a 60 minutos con guardado.
 - Juego de navegador en un único HTML, sin instalación, con teclado y ratón.
-- Vista lateral 2D más mapa cenital para aterrizar y como mapa.
+- ~~Vista lateral 2D~~ → **vista cenital con movimiento en todas las direcciones, como en Pokémon** ([ACORDADO-USUARIO], 15/11/2026), con alturas, escalada y saltos para mantener las plataformas.
 - Estilo marcado por las imágenes de Javier (cel-shaded / cómic indie / pixel art de acción).
 
 ### 3.4 Pendiente
@@ -399,14 +436,16 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 3. **Escalas entre animaciones:** se ajustaron a ojo (`scales` en el script). Hay que revisarlas en el juego para que el personaje no "cambie de tamaño" entre andar, correr y saltar.
 4. **Orientación de `jump`:** casi todos los fotogramas miran a la derecha, pero conviene confirmarlo fotograma a fotograma.
 5. **Texto incrustado** en `avion.jpg` y `paisaje.jpg` (ver §1.6).
-6. ~~**Vista lateral frente a cenital**~~ (resuelto: vista lateral, ver §2.1). El clima ya está resuelto: varios biomas con selva, lluvia y oscuridad (ver §1.6).
+6. ~~**Vista lateral frente a cenital**~~ (resuelto: **vista cenital**, Javier lo decidió tras probar la lateral; ver §2.1). El clima ya está resuelto: varios biomas con selva, lluvia y oscuridad (ver §1.6).
 7. ~~**Contradicción con las instrucciones del proyecto "Juego"**~~ (resuelto: el repositorio es del juego de la isla).
 
 ### 3.6 Preguntas abiertas para Javier
 
 1. ~~¿El repositorio es para este juego de la isla o para el juego urbano de las instrucciones del proyecto?~~ **Resuelta:** es para el juego de la isla.
 2. ~~¿Se mantiene "un solo HTML para navegador", o, al pasar a un repositorio, preferiría otro motor (por ejemplo, Godot)?~~ **Resuelta:** un solo HTML para navegador.
-3. ~~¿Vista lateral (acordada por delegación) o cenital, ahora que hay hojas de sprites en 4 direcciones?~~ **Resuelta:** vista lateral 2D.
+3. ~~¿Vista lateral (acordada por delegación) o cenital, ahora que hay hojas de sprites en 4 direcciones?~~ **Resuelta:** **vista cenital**, con movimiento en todas las direcciones, como en Pokémon (decisión de Javier tras probar la lateral).
+3b. ¿Movimiento **libre en 8 direcciones** (lo recomendado) o **por casillas** como en el Pokémon clásico?
+3c. ¿Puede conseguir animaciones de saltar, agacharse, rodar, golpe y recoger también **mirando arriba y abajo**?
 4. ~~¿Isla tropical, nevada o mixta?~~ **Resuelta:** varios climas y biomas, con selva, lluvia y oscuridad (§1.6).
 5. ¿Tono realista y oscuro, o aventura?
 6. Al morir: ¿reaparecer en el refugio (lo recomendado) o empezar de cero?
@@ -423,10 +462,11 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 | Fase | Objetivo | Criterio de terminada |
 |---|---|---|
 | **0. Infraestructura** | Repositorio, `package.json`, `build.mjs` (esbuild + assets en base64 → un HTML), estructura `src/`, test de humo con Playwright, README | `npm run build` genera `dist/isla.html`. Abierto desde file:// en Chrome muestra una pantalla y no hay errores en consola. `npm test` pasa. |
-| **1. Motor y personaje** | Bucle, input, mundo de tiles de prueba, físicas (sólidos, plataformas de un sentido, agua), cámara, jugador con animaciones del atlas (idle, walk, run, jump, crouch) | Se anda, se corre, se salta, uno se agacha y se baja de plataformas. La cámara sigue sin tirones. Animación correcta en ambas direcciones. Sin atravesar tiles a velocidad máxima de caída. |
+| **1. Motor y personaje** | ~~Versión lateral~~ (hecha en la sesión 1, descartada) | — |
+| **1b. Motor y personaje en cenital** | Rehacer mundo de prueba, colisiones y jugador para la vista cenital: movimiento en 8 direcciones, animaciones en 4 direcciones, colisión por los pies, ordenación por profundidad (y), alturas básicas con una pared escalable y un saliente para bajar, salto con sombra por encima de un hueco, agua poco profunda y profunda, cámara en x e y | Se anda y se corre en todas las direcciones con la animación correcta (incluidas diagonales). No se atraviesan paredes ni objetos, y el personaje pasa por delante y por detrás de un árbol según su posición. Se salta un hueco, se baja un saliente y se escala una pared básica. Las pruebas de humo están adaptadas y en verde. |
 | **2. Flujo de inicio** | Título (avion.jpg), creación (10 puntos, 4 atributos, colores con recoloreado y vista previa), intro breve, aterrizaje cenital con el resultado según la zona | Se puede hacer el recorrido completo de título → creación → aterrizaje → aparecer en el mundo, en la zona correspondiente. Los atributos afectan al salto y a la vida. |
 | **3. La isla** | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
-| **4. Movilidad avanzada** | Escalada con aguante (Agilidad), lianas y escaleras, garfio, nado, daño por caída, plataformas que se derrumban, voltereta | Con Agilidad 0 se llega a la cumbre por la ruta de la cueva, y con Agilidad alta escalando. El garfio se engancha a superficies sólidas. Cae daño desde más de cierta altura. |
+| **4. Movilidad avanzada** | Escalada entre alturas con aguante (Agilidad), lianas y escaleras, garfio a puntos de anclaje, saltos de huecos según la Agilidad, nado, daño por caída, suelo que se derrumba, ráfagas de viento, voltereta | Con Agilidad 0 se llega a la cumbre por la ruta de la cueva, y con Agilidad alta escalando. El garfio se engancha a sus anclajes. Bajar de mucha altura hace daño. Hay una persecución jugable por los acantilados. |
 | **5. Supervivencia** | Necesidades, recolección, inventario con peso, cofres, comida y agua (dulce / salada / sucia), hoguera, cama, dormir, ciclo día/noche, guardado y carga | Una noche completa se puede sobrevivir gestionando recursos. Guardar, recargar la página y continuar mantiene el estado. |
 | **6. Fabricación y mezclas** | Recetas, cocina, mezcla con pistas por Inteligencia | Cada receta consume sus materiales. Mezclar bien descubre la receta; mezclar mal aplica la penalización. Las pistas cambian con la Inteligencia. |
 | **7. Sigilo y combate** | Percepción (cono, línea de visión, luz, hierba, ruido), estados de la IA, combate cuerpo a cuerpo y arco, eliminación sigilosa, lanzas arrojadizas | Se puede saquear el poblado sin ser detectado si se juega con cuidado. El enemigo investiga los ruidos y abandona la persecución. Funciona la eliminación por la espalda. |
@@ -436,7 +476,63 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 
 ---
 
-## 5. Primera tarea para Claude Code
+## 4b. SIGUIENTE TAREA para Claude Code (sesión 2): conversión a vista cenital
+
+> Esta sección manda sobre el apartado 5, que queda como historial de la sesión 1.
+
+**Objetivo: Fase 1b.** Rehacer el movimiento y el mundo de prueba en **vista cenital**, al estilo Pokémon, reutilizando toda la infraestructura de la sesión 1. Sigue en pie todo lo demás: un único HTML que funciona con doble clic y pruebas con Playwright.
+
+1. Trabajar en la rama `claude/vista-cenital`, que ya contiene el trabajo de la sesión 1, el atlas en 4 direcciones y este documento actualizado.
+2. Leer §2.1 (vista cenital y propuesta de plataformas en cenital), §2.4 (isla revisada) y §2.6 (atlas en 4 direcciones).
+3. **Tiles en cenital** de 32 px (o mantener 20 px si se justifica). Tipos: hierba, arena, tierra, agua poco profunda (ralentiza), agua profunda (nado), roca o pared (sólida), árbol (sólido, por partes), hierba alta (no sólida; esconde) y **altura** por tile.
+4. **Jugador:**
+   - Movimiento en 8 direcciones normalizado; Mayús para correr.
+   - Animación `walk_*` o `run_*` según la dirección dominante; las diagonales usan la más cercana.
+   - Reposo = primer fotograma de la dirección actual.
+   - Caja de colisión en los pies, deslizamiento contra las paredes (sin quedarse enganchado en esquinas) y dibujado ordenado por la y de los pies.
+5. **Alturas básicas** (prueba de concepto de las plataformas):
+   - una meseta con una pared que se escala manteniendo la dirección contra ella, con aguante y sprite `up`;
+   - un saliente por el que se salta hacia abajo;
+   - un hueco que se cruza con Espacio, con un salto en arco, sombra y sprite `jump`.
+6. **Agua:** la poco profunda ralentiza; la profunda obliga a nadar despacio (provisional).
+7. **Cámara** que sigue en x e y con suavizado y respeta los límites del mapa.
+8. **Retirar o archivar** la física lateral: gravedad y plataformas de un sentido.
+9. **Adaptar `tests/smoke.spec.mjs`:** moverse en las 4 direcciones y en diagonal, chocar con una pared, cruzar el hueco con salto, sin errores de consola, y captura de pantalla.
+10. Actualizar `README.md` (controles nuevos), `docs/CHANGELOG.md` y este documento.
+11. Hacer commit, subir la rama e informar con honestidad de qué funciona y qué no.
+
+**Controles propuestos para cenital** [RECOMENDACIÓN]:
+
+| Tecla | Acción |
+|---|---|
+| WASD / flechas | Moverse en todas las direcciones |
+| Mayús | Correr |
+| Espacio | Saltar |
+| C | Agacharse (sigilo) |
+| V | Voltereta |
+| E | Interactuar |
+| Clic izquierdo | Atacar hacia el ratón |
+| Clic derecho / G | Garfio |
+| F | Eliminación sigilosa |
+| T | Antorcha |
+| Q / R / H | Comer / beber / curar |
+| I o Tab | Inventario |
+| M | Mapa |
+| L | Diario |
+| Esc | Pausa |
+
+**Definición de terminado:**
+
+- El personaje se mueve por un mapa de prueba cenital en todas las direcciones, con las animaciones correctas.
+- Choca bien con las paredes y se ordena bien con los árboles.
+- Escala una pared, baja un saliente y salta un hueco.
+- `npm run build` y `npm test` en verde.
+- Captura de pantalla revisada.
+- Rama subida.
+
+---
+
+## 5. Primera tarea para Claude Code (sesión 1 — HISTORIAL, ya hecha)
 
 **Objetivo de la sesión 1: Fases 0 y 1. Una base sólida y un personaje que se mueve bien en un mundo de prueba.**
 

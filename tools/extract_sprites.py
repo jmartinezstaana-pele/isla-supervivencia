@@ -63,8 +63,15 @@ def extract_row(f, box, n_expected, bgthr=26, minarea=150, light=False, merge_ga
 
 sheets = {}
 # lateral right rows
+# 4 direcciones (vista cenital). 'walk'/'run' = derecha (se mantienen por compatibilidad).
 sheets['walk'] = extract_row('Andar.png', (200, 755, 1040, 925), 6)
+sheets['walk_down'] = extract_row('Andar.png', (200, 95, 1040, 292), 6)
+sheets['walk_up'] = extract_row('Andar.png', (200, 330, 1040, 514), 6)
+sheets['walk_left'] = extract_row('Andar.png', (200, 550, 1040, 727), 6)
 sheets['run'] = extract_row('Correr.png', (170, 700, 1220, 840), 8)
+sheets['run_down'] = extract_row('Correr.png', (170, 100, 1220, 280), 8)
+sheets['run_up'] = extract_row('Correr.png', (170, 318, 1220, 484), 8)
+sheets['run_left'] = extract_row('Correr.png', (170, 512, 1220, 668), 8)
 sheets['jump'] = extract_row('Saltar.png', (0, 28, 870, 148), 6, minarea=80)
 sheets['crouch'] = extract_row('Agacharse.png', (0, 26, 258, 70), 4, minarea=40, merge_gap=3)
 sheets['roll'] = extract_row('Rodar.png', (0, 24, 426, 72), 7, minarea=40, merge_gap=3)
@@ -94,7 +101,7 @@ def largest_only(f, box):
 sheets['reach'] = largest_only('Coger objeto (media altura).png', (0, 0, 104, 150))
 sheets['up'] = largest_only('Coger objeto (alto).png', (60, 0, 143, 178))
 del sheets['turn']
-scales = {'walk': .6, 'run': .64, 'jump': .74, 'crouch': 1.5, 'roll': 1.5, 'dodge': 1.5,
+scales = {'walk': .6, 'walk_down': .54, 'walk_up': .6, 'walk_left': .6, 'run': .64, 'run_down': .59, 'run_up': .64, 'run_left': .64, 'jump': .74, 'crouch': 1.5, 'roll': 1.5, 'dodge': 1.5,
           'hurt': .8, 'pick': .72, 'reach': .66, 'up': .66, 'idle': .6}
 frames_meta = {}
 packed = []
