@@ -75,12 +75,21 @@ export function doInteraction(game, it) {
       break;
     case 'prop': {
       const pr = it.target;
+      if (pr.door) {
+        game.useDoor(pr);
+        break;
+      }
+      if (pr.note && pr.reread) {
+        game.openNote(pr.note);
+        break;
+      }
       giveLoot(game, pr.loot || []);
       if (pr.emptySprite) pr.emptied = true;
       else pr.opened = true;
       if (pr.kind === 'avion') p.say('Entre los restos encuentras un cuchillo y provisiones.');
       if (pr.msg) p.say(pr.msg);
       if (pr.loot && pr.loot.length) game.stats.saqueos++;
+      if (pr.note) game.openNote(pr.note);
       game.sound('open');
       break;
     }

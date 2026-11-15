@@ -6,6 +6,7 @@ import { TILE } from '../config.js';
 import { RNG } from '../core/rng.js';
 import * as S from '../gfx/props.js';
 import * as B from '../gfx/biomeProps.js';
+import * as I from '../gfx/interiorProps.js';
 import { C } from '../gfx/palette.js';
 import { G } from './tiles.js';
 import { makeProp } from './props.js';
@@ -54,11 +55,15 @@ export function buildWorldProps(map, taken = []) {
     place('hoguera', sprite('hoguera', 0, S.campfireBase), P.x, P.y + 0.4, {
       fire: { size: 1.2, dy: -6 }, light: { r: 140, color: [255, 170, 80], flicker: true },
     });
-    // Choza del jefe al norte, con el bidón de combustible (TRASPASO §2.4).
-    place('choza', sprite('chozaJefe', 0, () => B.hut(3, true)), P.x, P.y - 5.2);
-    chest(P.x + 2.3, P.y - 4.4, 'el cofre del jefe', [['bidon', 1], ['cecina', 2], ['venda', 1]]);
+    // Choza del jefe al norte; dentro, su cofre con el bidón de combustible
+    // (TRASPASO §2.4). Las cabañas también tienen interior (sesión 6).
+    const hutDoor = (to, x, y) => ({
+      interact: { verbo: 'Entrar en', nombre: to === 'choza' ? 'la choza del jefe' : 'la cabaña' },
+      door: { to, entry: 'a', trigger: { x: T(x) - 11, y: T(y), w: 22, h: 16 }, out: { x: T(x), y: T(y) + 22, level: 0 } },
+    });
+    place('choza', sprite('chozaJefe', 0, () => B.hut(3, true)), P.x, P.y - 5.2, hutDoor('choza', P.x, P.y - 5.2));
     const huts = [[-6.2, -2.4, 1], [6.4, -2.2, 2], [-6.8, 3.2, 3], [6.2, 3.6, 4], [-1.5, 6.6, 5]];
-    for (const [dx, dy, v] of huts) place('cabana', sprite('cabana', v, () => B.hut(20 + v)), P.x + dx, P.y + dy);
+    for (const [dx, dy, v] of huts) place('cabana', sprite('cabana', v, () => B.hut(20 + v)), P.x + dx, P.y + dy, hutDoor(`cabana${v}`, P.x + dx, P.y + dy));
     place('torre', sprite('torreMadera', 0, () => B.watchtower(1)), P.x + 3.4, P.y + 7.4);
     for (const [dx, dy] of [[-3, -1], [3, -1], [-3, 2.6], [3, 2.8], [0.2, -3.2]]) {
       place('antorcha', sprite('antorcha', 0, S.torchPole), P.x + dx, P.y + dy, { fire: { size: 0.55, dy: -38 }, light: { r: 80, color: [255, 160, 70], flicker: true } });
@@ -95,8 +100,12 @@ export function buildWorldProps(map, taken = []) {
     const M = W.militar;
     const [bx, by] = W.bunker;
     place('bunker', sprite('bunker', 0, B.bunker), bx, by + 1.4, {
-      interact: { verbo: 'Examinar', nombre: 'la puerta del búnker' }, loot: [],
-      msg: 'Puerta de acero cerrada. Tiene un lector de tarjetas: hará falta una tarjeta de acceso.',
+      interact: { verbo: 'Abrir', nombre: 'la puerta del búnker' },
+      door: {
+        to: 'bunker', entry: 'a', needs: 'tarjeta', out: { x: T(bx), y: T(by + 1.4) + 20, level: 0 },
+        locked: 'Puerta de acero cerrada. Tiene un lector de tarjetas: hará falta una tarjeta de acceso.',
+        unlockMsg: 'Pasas la tarjeta. La luz se pone verde y la puerta cede con un chirrido.',
+      },
     });
     for (const [dx, dy, v] of [[-6, -2, 0], [-6.5, 3.6, 1], [5.6, 3.8, 2], [0, 6.2, 3]]) place('tiendaMilitar', sprite('tiendaMil', v, () => B.milTent(30 + v)), M.x + dx, M.y + dy);
     place('torre', sprite('torreMetal', 0, () => B.watchtower(2, true)), M.x + 7.6, M.y - 3.6);
@@ -109,6 +118,22 @@ export function buildWorldProps(map, taken = []) {
     for (const [dx, dy, v] of [[2.4, -5.6, 0], [-8.6, -3.4, 1]]) place('caja', sprite('cajaMil', v, () => S.crate(70 + v, 1)), M.x + dx, M.y + dy);
     place('cartel', sprite('cartel', 1, () => S.sign(0, 'skull')), M.x - 11.5, M.y + 3);
     space.reserve(T(M.x), T(M.y), T(M.r));
+  }
+
+  // ---------------------------------------------------------------- bocas de la cueva
+  // Dos bocas en paredes del monte: una en la terraza 1 y otra en la 3. Por dentro
+  // se va de una a otra sin escalar (ruta alternativa a la escalada).
+  for (const entry of ['a', 'b']) {
+    const [cx, cy] = W.cueva[entry];
+    const base = map.levelAt(cx, cy + 1);
+    place('bocaCueva', sprite('bocaCueva', entry, () => I.caveMouth(entry === 'a' ? 11 : 12)), cx + 0.5, cy + 1, {
+      interact: { verbo: 'Entrar en', nombre: 'la cueva' },
+      door: {
+        to: 'cueva', entry, trigger: { x: T(cx - 1) + 8, y: T(cy + 1), w: T(3) - 16, h: 16 },
+        out: { x: T(cx + 0.5), y: T(cy + 1) + 22, level: base },
+      },
+    });
+    space.reserve(T(cx + 0.5), T(cy + 1.5), T(2));
   }
 
   // ---------------------------------------------------------------- bahía este

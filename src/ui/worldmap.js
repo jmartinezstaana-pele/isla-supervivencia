@@ -5,13 +5,16 @@
 import { VIEW_W, VIEW_H, TILE } from '../config.js';
 import { text, panel } from '../render/hud.js';
 import { LAND_PX, paintLandingMap, paintFog } from '../world/landingMap.js';
-import { ZONES, ZONE_IDS } from '../world/worldMap.js';
+import { ZONES, ZONE_IDS, worldZoneAt } from '../world/worldMap.js';
+import { INTERIOR_ZONES } from '../world/interiors.js';
 import { uiTransform } from '../core/display.js';
 
 const S = 2; // escala del mapa pintado en pantalla (cada tile = 4 px)
 
 export function drawWorldMap(c, g) {
-  const map = g.map;
+  // Siempre el mapa de la isla, aunque el jugador esté en un interior.
+  const isl = g.overworld || g;
+  const map = isl.map;
   if (!g.landing.paint) g.landing.prepare();
   if (!g.mapFog || g.mapDirty) {
     g.mapFog = paintFog(map, g.discovered);
@@ -43,8 +46,8 @@ export function drawWorldMap(c, g) {
   }
   const toMap = (px, py) => [x0 + (px / TILE) * LAND_PX * S, y0 + (py / TILE) * LAND_PX * S];
   // Restos del avión.
-  const wreck = g.world.props.find((p) => p.kind === 'avion');
-  if (wreck && g.discovered.has(g.zoneAt(wreck.x, wreck.y))) {
+  const wreck = isl.world.props.find((p) => p.kind === 'avion');
+  if (wreck && g.discovered.has(worldZoneAt(map, wreck.x, wreck.y))) {
     const [wx, wy] = toMap(wreck.x, wreck.y);
     c.fillStyle = '#17150f';
     c.fillRect(wx - 7, wy - 3, 14, 6);
@@ -56,7 +59,8 @@ export function drawWorldMap(c, g) {
   }
   // Jugador: flecha parpadeante según hacia dónde mira.
   const p = g.player;
-  const [mx, my] = toMap(p.x, p.y);
+  const at = g.level && g.level.indoor && g.level.returnPos ? g.level.returnPos : p;
+  const [mx, my] = toMap(at.x, at.y);
   const blink = Math.floor(performance.now() / 300) % 2 === 0;
   const ang = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[p.facing] || 0;
   c.save();
@@ -68,7 +72,8 @@ export function drawWorldMap(c, g) {
   c.beginPath(); c.moveTo(8, 0); c.lineTo(-5, -5); c.lineTo(-2, 0); c.lineTo(-5, 5); c.closePath(); c.fill();
   c.restore();
   text(c, 'Tú', mx, my - 16, { size: 13, align: 'center', color: '#ffd84a', outline: 3 });
-  text(c, ZONES[g.zone] ? ZONES[g.zone][0] : '', x0 + 8, y0 + h + 10, { size: 15, color: '#ffd38a', outline: 3 });
+  const zn = ZONES[g.zone] || INTERIOR_ZONES[g.zone];
+  text(c, zn ? zn[0] : '', x0 + 8, y0 + h + 10, { size: 15, color: '#ffd38a', outline: 3 });
 }
 
 export { paintLandingMap };

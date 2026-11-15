@@ -15,6 +15,7 @@ import { Game, ZONE_NAMES } from './game.js';
 import { tribalAtlas, boarFrames, crabFrames } from './gfx/characters.js';
 import { CharacterSheet } from './gfx/charSprite.js';
 import { maskSpeckle } from './gfx/recolor.js';
+import { INTERIOR_ZONES } from './world/interiors.js';
 import { display } from './core/display.js';
 import { flameFrames } from './gfx/props.js';
 import { buildIcons } from './gfx/icons.js';
@@ -50,7 +51,7 @@ async function boot() {
     flames: { big: flameFrames(1.2), small: flameFrames(0.55) }, icons: buildIcons(),
   };
   const game = new Game({ ctx, input, sprites, images: { selva, avion, paisaje }, audio: new Audio() });
-  game.zoneNames = ZONE_NAMES;
+  game.zoneNames = { ...ZONE_NAMES, ...INTERIOR_ZONES };
 
   let frozen = false;
   startLoop((dt) => {
@@ -148,6 +149,20 @@ async function boot() {
       const [, , , fh] = sheet.frames[p.anim.name][p.anim.index];
       return { K, frameH: fh, spriteH: h, blockiness: same / total, drawn1to1: match / total, opaque: total };
     },
+    /** Nivel activo (sesión 6): 'isla' o el interior. */
+    level() { const L = game.level; return { id: L.id, indoor: !!L.indoor, zone: game.zone, w: game.map.width, h: game.map.height }; },
+    /** Puertas de la isla: { to, entry, x, y, level, trigger, out, needs }. */
+    doors() { return game.doors.map((d) => ({ to: d.door.to, entry: d.door.entry, x: d.x, y: d.y, level: d.level || 0, trigger: d.door.trigger || null, out: d.door.out, needs: d.door.needs || null })); },
+    /** Salidas del interior activo. */
+    exits() { return (game.level.exits || []).map((e) => ({ entry: e.entry, rect: { ...e.rect } })); },
+    /** Entra ya (sin fundido) en un interior por su entrada `entry`, o sale a la isla con `to: 'isla'`. */
+    changeLevel(target) { game.changeLevel(target); },
+    transition() { return game.transition ? { ...game.transition } : null; },
+    /** Coloca los pies del jugador en píxeles exactos del nivel activo. */
+    placePx(x, y, level = 0) { game.player.placeAt(x, y, level); game.camera.snap(game.player); },
+    give(id, n = 1) { return game.inventory.add(id, n); },
+    note() { return game.noteOpen ? { id: game.noteOpen.id, titulo: game.noteOpen.titulo } : null; },
+    interaction() { const it = game.interaction; return it ? { kind: it.kind, label: it.label } : null; },
     /** Orden de dibujo del último fotograma ("jugador", "arbol", …). */
     drawOrder() {
       game.render();

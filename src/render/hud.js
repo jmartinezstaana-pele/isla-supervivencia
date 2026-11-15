@@ -211,6 +211,7 @@ export function drawHud(c, g) {
   if (g.invOpen) drawInventory(c, g);
   if (g.charOpen) drawCharacter(c, g);
   if (g.mapOpen) drawWorldMap(c, g);
+  if (g.noteOpen) drawNote(c, g.noteOpen);
   if (p.dead) {
     const a = Math.min(1, Math.max(0, g.deathT) * 0.8);
     c.fillStyle = `rgba(30, 0, 0, ${0.65 * a})`;
@@ -231,10 +232,33 @@ export function drawHud(c, g) {
 
 export const CONTROLS = [
   ['WASD / flechas', 'moverse'], ['Mayús', 'correr'], ['C', 'agacharse (en hierba alta: oculto)'],
-  ['Clic izq. / J', 'atacar hacia el ratón'], ['F', 'eliminar por la espalda'], ['E', 'abrir, recoger, beber del río'],
+  ['Clic izq. / J', 'atacar hacia el ratón'], ['F', 'eliminar por la espalda'], ['E', 'abrir, recoger, entrar, leer'],
   ['I / Tab', 'inventario'], ['P', 'personaje (atributos)'], ['M', 'mapa de la isla'], ['Q · R · H', 'comer · beber · curar'], ['T', 'antorcha'], ['Espacio', 'saltar'],
   ['Empujar contra roca', 'escalar'], ['F5 · F6', 'adelantar 2 h · lluvia (pruebas)'], ['Esc', 'pausa'],
 ];
+
+/** Nota abierta: hoja de papel con el texto (sesión 6). */
+function drawNote(c, n) {
+  c.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  c.fillRect(0, 0, VIEW_W, VIEW_H);
+  const w = 760;
+  const h = 120 + n.texto.length * 34;
+  const x = (VIEW_W - w) / 2;
+  const y = (VIEW_H - h) / 2 - 20;
+  c.fillStyle = '#17150f';
+  c.fillRect(x - 4, y - 4, w + 8, h + 8);
+  c.fillStyle = '#efe6c8';
+  c.fillRect(x, y, w, h);
+  c.fillStyle = '#d8ccaa';
+  c.fillRect(x, y + h - 8, w, 8);
+  for (let k = 0; k < n.texto.length; k++) {
+    c.fillStyle = 'rgba(120, 140, 170, 0.25)';
+    c.fillRect(x + 30, y + 92 + k * 34, w - 60, 1);
+  }
+  text(c, n.titulo, x + w / 2, y + 40, { size: 26, align: 'center', color: '#3a2a14', outline: 0 });
+  n.texto.forEach((line, k) => text(c, line, x + 34, y + 84 + k * 34, { size: 18, bold: false, color: '#2a2016', outline: 0 }));
+  text(c, 'E · Esc · clic para cerrar', VIEW_W / 2, y + h + 30, { size: 15, align: 'center', color: '#e8dca0', outline: 3 });
+}
 
 function drawHelp(c, a) {
   c.globalAlpha = a;

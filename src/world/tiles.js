@@ -23,10 +23,14 @@ export const G = {
   GRAVEL: 18,     // grava del campamento militar
   CONCRETE: 19,   // hormigón (helipuerto, búnker)
   NEEDLES: 20,    // pinocha del bosque de coníferas
+  // Interiores (sesión 6): cuevas, búnker y cabañas.
+  CAVE: 21,       // suelo de roca de la cueva
+  WALL: 22,       // muro sólido (roca, hormigón o barro y palos según el interior)
+  VOID: 23,       // negro fuera de las salas (sólido)
 };
 
 /** Agua de cualquier tipo (para el dibujo animado). */
 export const isWaterGround = (g) => g === G.SHALLOW || g === G.DEEP || g === G.RIVER || g === G.WATERFALL || g === G.SWAMP;
 
 /** Suelos que nunca se pisan andando. */
-export const isBlockingGround = (g) => g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S;
+export const isBlockingGround = (g) => g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S || g === G.WALL || g === G.VOID;

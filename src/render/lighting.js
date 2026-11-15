@@ -26,9 +26,12 @@ export class Lighting {
 
   draw(l, game) {
     const { clock, weather, camera: cam, player, time: t } = game;
-    const amb = clock.ambient;
-    const tint = weather.tint;
-    const a = amb.map((v, i) => Math.round(v * tint[i]));
+    // Interiores: luz propia (cueva negra, búnker en penumbra) o la de fuera atenuada (cabañas).
+    const L = game.level || {};
+    let a;
+    if (L.indoor && L.ambient) a = L.ambient;
+    else if (L.indoor) a = clock.ambient.map((v) => Math.round(v * (L.interiorShade ?? 0.7)));
+    else a = clock.ambient.map((v, i) => Math.round(v * weather.tint[i]));
     if (a[0] > 250 && a[1] > 250 && a[2] > 250) return;
     const c = this.ctx;
     c.globalCompositeOperation = 'source-over';
@@ -60,7 +63,7 @@ export class Lighting {
         this.light(c, e.x - cam.ix, e.y - cam.iy, e.r, e.color, k * (e.k ?? 1));
       }
       // Luz propia del jugador (radio de visión reducido de noche).
-      this.light(c, player.x - cam.ix, player.y - 20 - cam.iy, player.torchOn ? 0 : 68, [150, 150, 175], k * 0.7);
+      this.light(c, player.x - cam.ix, player.y - 20 - cam.iy, player.torchOn ? 0 : L.selfLight ?? 68, [150, 150, 175], k * 0.7);
     }
     l.save();
     worldScreen(l);

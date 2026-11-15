@@ -22,6 +22,11 @@ export const ITEMS = {
   bidon: { nombre: 'Bidón de combustible', tipo: 'clave', desc: 'Lleno de gasolina de avión. Harán falta tres para volver a volar.' },
   huevo: { nombre: 'Huevo de ave marina', tipo: 'comida', efecto: { hambre: 9 }, riesgo: 0.1, desc: 'Del nido de los acantilados. Mejor cocinado.' },
   metal: { nombre: 'Chatarra', tipo: 'material', desc: 'Piezas de metal del campamento militar.' },
+  // Sesión 6: interiores.
+  tarjeta: { nombre: 'Tarjeta de acceso', tipo: 'clave', desc: 'Tarjeta magnética del puesto militar. Abre la puerta del búnker.' },
+  radio_rota: { nombre: 'Radio rota', tipo: 'clave', desc: 'Emisora militar con las tripas al aire. Con batería y cables quizá vuelva a funcionar.' },
+  bateria: { nombre: 'Batería', tipo: 'clave', desc: 'Batería militar. Aún le queda carga.' },
+  cables: { nombre: 'Cables', tipo: 'material', desc: 'Un manojo de cables con los extremos pelados.' },
   idolo: { nombre: 'Ídolo de jade', tipo: 'tesoro', desc: 'Una figurilla antigua de las ruinas. ¿Qué secretos guarda la isla?' },
 };
 
@@ -41,6 +46,8 @@ export const HINTS = {
   cangrejo: { 2: 'Crudo es arriesgado.' },
   metal: { 2: 'Con cuerda y metal se haría un garfio.', 4: 'Garfio: 3 cuerdas y 2 piezas de metal. Kit de reparación: 4 metal, 2 cables y 1 cuerda.' },
   bidon: { 2: 'Si el avión cayó en la arena, quizá vuelva a volar.' },
+  radio_rota: { 2: 'Le falta corriente y tiene cables arrancados.', 4: 'Radio: radio rota, batería y cables. Úsala en la antena de la cumbre.' },
+  cables: { 2: 'Servirían para reparar algo eléctrico.', 4: 'Radio: radio rota, batería y cables. Kit de reparación: 4 metal, 2 cables y 1 cuerda.' },
   coco: { 2: 'La cáscara podría servir de recipiente para hervir agua.' },
 };
 

@@ -77,7 +77,7 @@ export class TitleScreen {
       button(c, r, r.label, { selected: i === this.sel, disabled, sub: disabled ? 'sin partida guardada' : '' });
     }
     text(c, 'W / S o flechas · Enter para elegir', VIEW_W / 2, VIEW_H - 34, { size: 15, align: 'center', color: '#c8c8b8', bold: false, outline: 3 });
-    text(c, 'Prototipo · sesión 4', VIEW_W - 16, VIEW_H - 16, { size: 13, align: 'right', color: '#a8a8a8', outline: 3 });
+    text(c, 'Prototipo · sesión 6', VIEW_W - 16, VIEW_H - 16, { size: 13, align: 'right', color: '#a8a8a8', outline: 3 });
     if (this.showControls) this.renderControls(c);
     drawCursor(c, this.game.input.mouse);
   }

@@ -34,6 +34,7 @@ import { Clock } from './systems/clock.js';
 import { Weather } from './systems/weather.js';
 import { Inventory, SLOTS } from './systems/inventory.js';
 import { findInteraction, doInteraction, useItem, quickUse } from './systems/interaction.js';
+import { buildInterior, INTERIOR_ZONES, NOTES } from './world/interiors.js';
 import { ITEMS } from './data/items.js';
 
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -62,6 +63,8 @@ export class Game {
     this.debug = false;
     this.fps = 60;
     this.waterfalls = this.findWaterfalls();
+    // Piezas fijas de la isla (los interiores tienen las suyas; ver setLevel).
+    this.island = { map: this.map, terrain: this.terrain, water: this.water, camera: this.camera, waterfalls: this.waterfalls };
     this.character = { attrs: { ...DEFAULT_ATTRS }, colors: { ...DEFAULT_COLORS } };
     this.resetWorld();
     this.screens = {
@@ -78,6 +81,8 @@ export class Game {
 
   /** Deja la isla como al principio: props, botín, enemigos, reloj, clima y jugador nuevo. */
   resetWorld() {
+    // Siempre se vuelve a la isla (por si la partida anterior acabó en un interior).
+    Object.assign(this, this.island);
     // Props del trozo de la sesión 3 (en sus coordenadas, desplazados a su sitio) y del resto de la isla.
     const pc = this.map.piece;
     const ox = pc.x * TILE;
@@ -129,6 +134,173 @@ export class Game {
     this.plane = { zone: 'playa', estado: 'reparable' };
     this.impact = null;
     this.spawnEnemies();
+    // Niveles (sesión 6): la isla y los interiores, que se crean al entrar por primera vez.
+    this.overworld = this.captureLevel({ id: 'isla', indoor: false });
+    this.level = this.overworld;
+    this.interiors = {};
+    this.doors = props.filter((pr) => pr.door);
+    this.transition = null;
+    this.doorCooldown = 0;
+    this.noteOpen = null;
+    this.notes = new Set();
+  }
+
+  // ------------------------------------------------------------------ interiores
+  /** Lo que cambia de un nivel a otro (isla, cueva, búnker, cabañas). */
+  captureLevel(meta) {
+    return {
+      ...meta,
+      map: this.map, terrain: this.terrain, water: this.water, camera: this.camera, waterfalls: this.waterfalls,
+      world: this.world, pickups: this.pickups, enemies: this.enemies, animals: this.animals, bodies: this.bodies,
+    };
+  }
+
+  /** Guarda en el nivel activo las listas que se hayan sustituido (botín recogido, cuerpos…). */
+  syncLevel() {
+    const L = this.level;
+    if (!L) return;
+    L.pickups = this.pickups;
+    L.bodies = this.bodies;
+    L.enemies = this.enemies;
+    L.animals = this.animals;
+  }
+
+  /** Activa un nivel: el juego pasa a usar su mapa, su terreno, sus props y sus entidades. */
+  setLevel(L) {
+    this.syncLevel();
+    this.level = L;
+    for (const k of ['map', 'terrain', 'water', 'camera', 'waterfalls', 'world', 'pickups', 'enemies', 'animals', 'bodies']) this[k] = L[k];
+  }
+
+  /** Crea (la primera vez) el nivel de un interior. */
+  interiorLevel(id) {
+    if (this.interiors[id]) return this.interiors[id];
+    const def = buildInterior(id);
+    const map = def.map;
+    const terrain = new TerrainCache(map, 120);
+    const W = map.pixelWidth;
+    const H = map.pixelHeight;
+    const world = { map, grid: new PropGrid(W, H), props: def.props, index: new PropIndex(W, H), lights: [] };
+    for (const p of def.props) {
+      if (p.solid) world.grid.add(p);
+      world.index.add(p);
+      if (p.light) world.lights.push(p);
+    }
+    const L = {
+      ...def, terrain, water: new WaterLayer(map, terrain), camera: new Camera(W, H), waterfalls: [],
+      world, pickups: def.pickups, enemies: [], animals: [], bodies: [],
+    };
+    this.interiors[id] = L;
+    return L;
+  }
+
+  /** Puerta de la isla que lleva a la entrada `entry` del interior `id`. */
+  doorTo(id, entry) {
+    return this.doors.find((d) => d.door.to === id && d.door.entry === entry);
+  }
+
+  /** Usa una puerta de la isla (al caminar hacia ella o con E). */
+  useDoor(pr) {
+    const d = pr.door;
+    if (d.needs && !this.inventory.has(d.needs)) {
+      this.player.say(d.locked || 'Está cerrada.');
+      this.sound('hit');
+      return false;
+    }
+    if (d.needs && d.unlockMsg && !d.unlocked) {
+      d.unlocked = true;
+      this.player.say(d.unlockMsg);
+    }
+    this.startTransition({ to: d.to, entry: d.entry });
+    return true;
+  }
+
+  /** Fundido a negro, cambio de nivel a mitad y fundido de vuelta. */
+  startTransition(target) {
+    if (this.transition) return;
+    const p = this.player;
+    p.vx = p.vy = 0;
+    this.transition = { t: 0, dur: 0.5, swapped: false, target };
+    this.sound('open');
+  }
+
+  updateTransition(dt) {
+    const tr = this.transition;
+    tr.t += dt;
+    if (!tr.swapped && tr.t >= tr.dur / 2) {
+      tr.swapped = true;
+      this.changeLevel(tr.target);
+    }
+    if (tr.t >= tr.dur) this.transition = null;
+  }
+
+  /**
+   * Cambia de nivel ya (sin fundido): `{ to: id, entry }` entra en un interior;
+   * `{ to: 'isla', from: id, entry }` sale a la puerta correspondiente de la isla.
+   */
+  changeLevel({ to, entry, from }) {
+    const p = this.player;
+    if (to === 'isla') {
+      this.setLevel(this.overworld);
+      const door = this.doorTo(from, entry);
+      const out = door ? door.door.out : { x: this.map.spawn.x, y: this.map.spawn.y, level: 0 };
+      const box = { x: out.x - 9, y: out.y - 10, w: 18, h: 10 };
+      nudgeFree(this.world, box, out.level, 40);
+      p.placeAt(box.x + 9, box.y + 10, out.level);
+      p.facing = 'down';
+    } else {
+      const L = this.interiorLevel(to);
+      const door = this.doorTo(to, entry);
+      L.returnPos = door ? door.door.out : L.returnPos;
+      this.setLevel(L);
+      const sp = L.entries[entry] || Object.values(L.entries)[0];
+      p.placeAt(sp.x, sp.y, 0);
+      p.facing = 'up';
+      if (L.dark && !p.torchOn) p.say(this.inventory.has('antorcha') ? 'No se ve nada. Enciende la antorcha (T).' : 'Está oscurísimo. Sin una antorcha no verás nada.');
+    }
+    p.vx = p.vy = 0;
+    p.state = 'walk';
+    this.camera.snap(p);
+    this.doorCooldown = 0.35;
+    const zone = this.zoneAt(p.x, p.y);
+    const nueva = !this.level.indoor && zone !== this.zone ? this.discover(zone) : false;
+    if (zone !== this.zone || this.level.indoor) this.banner = { zone, age: 0, nueva };
+    this.zone = zone;
+    this.terrain.prefetch(this.camera.ix, this.camera.iy, this.camera.viewW, this.camera.viewH, 400);
+  }
+
+  /** Puertas que se cruzan andando: bocas de cueva y cabañas (hacia arriba), salidas de los interiores (hacia abajo). */
+  checkDoors(input) {
+    if (this.doorCooldown > 0) return false;
+    const p = this.player;
+    if (p.state !== 'walk' || p.swimming) return false;
+    const inRect = (r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+    if (this.level.indoor) {
+      if (!input.isDown('down')) return false;
+      const ex = this.level.exits.find((e) => inRect(e.rect));
+      if (!ex) return false;
+      this.startTransition({ to: 'isla', from: this.level.id, entry: ex.entry });
+      return true;
+    }
+    if (!input.isDown('up')) return false;
+    for (const pr of this.doors) {
+      const d = pr.door;
+      if (!d.trigger || d.needs || (pr.level || 0) !== p.level || !inRect(d.trigger)) continue;
+      return this.useDoor(pr);
+    }
+    return false;
+  }
+
+  /** Abre una nota para leerla (y la apunta como encontrada). */
+  openNote(id) {
+    const n = NOTES[id];
+    if (!n) return;
+    this.noteOpen = { id, ...n };
+    if (!this.notes.has(id)) {
+      this.notes.add(id);
+      this.stats.notas = this.notes.size;
+    }
+    this.sound('pickup');
   }
 
   /** Cambia de pantalla ('title', 'create', 'intro', 'landing', 'impact', 'play'). */
@@ -297,6 +469,7 @@ export class Game {
 
   /** Zona en un punto del mundo (px). */
   zoneAt(x, y) {
+    if (this.level && this.level.indoor) return this.level.zone;
     return worldZoneAt(this.map, x, y);
   }
 
@@ -472,11 +645,17 @@ export class Game {
       this.mapOpen = !this.mapOpen;
       this.invOpen = this.charOpen = false;
     }
-    if (input.pressed('pause')) {
+    if (input.pressed('pause') && !this.noteOpen) {
       if (this.invOpen) this.invOpen = false;
       else if (this.charOpen) this.charOpen = false;
       else if (this.mapOpen) this.mapOpen = false;
       else this.paused = !this.paused;
+    }
+    if (this.noteOpen) {
+      // Leyendo una nota: el mundo se detiene.
+      if (input.pressed('interact') || input.pressed('confirm') || input.pressed('pause') || input.mouse.pressed[0]) this.noteOpen = null;
+      input.endFrame();
+      return;
     }
     if (this.charOpen || this.mapOpen) {
       // Pantalla de personaje: el mundo se detiene.
@@ -507,7 +686,7 @@ export class Game {
     const wasFlash = this.weather.flash;
     this.weather.update(dt, this.camera);
     if (this.weather.flash > wasFlash) setTimeout(() => this.sound('thunder'), 400);
-    if (this.audio) this.audio.setRain(this.weather.intensity);
+    if (this.audio) this.audio.setRain(this.weather.intensity * (this.level.indoor ? 0.25 : 1));
     this.cloudStrength = (1 - this.weather.intensity) * (1 - this.clock.darkness);
     // Niebla en el manglar (más espesa de madrugada y con lluvia).
     const fogTarget = this.zone === 'manglar' ? 0.85 + this.weather.intensity * 0.15 : 0;
@@ -522,6 +701,15 @@ export class Game {
       this.particles.update(dt);
       return;
     }
+
+    // Cambio de nivel en curso: el jugador no se mueve durante el fundido.
+    if (this.transition) {
+      this.updateTransition(dt);
+      this.camera.update(dt, p);
+      this.particles.update(dt);
+      return;
+    }
+    this.doorCooldown = Math.max(0, this.doorCooldown - dt);
 
     // Pausa breve al golpear (hitstop): el mundo se congela un instante.
     if (this.hitstop > 0) {
@@ -555,6 +743,7 @@ export class Game {
       else p.say('No tienes antorcha.');
     }
 
+    if (this.checkDoors(input)) return;
     p.update(dt, input, this.world);
     this.resolvePlayerAttack();
     for (const e of this.enemies) if (Math.abs(e.x - p.x) < ACTIVE_R && Math.abs(e.y - p.y) < ACTIVE_R) e.update(dt, this);
@@ -567,7 +756,7 @@ export class Game {
       this.zone = zone;
       this.banner = { zone, age: 0, nueva: this.discover(zone) };
     }
-    emitAmbient(this, dt);
+    if (!this.level.indoor) emitAmbient(this, dt);
     if (Math.hypot(p.vx, p.vy) > 150 && Math.random() < dt * 12 && p.terrain === 'land') {
       this.particles.add({ type: 'dust', x: p.x, y: p.y - 1, vx: -p.vx * 0.1, vy: -6, life: 0.35, color: '#a08060', fade: true });
     }
@@ -635,6 +824,8 @@ export class Game {
 
   respawn() {
     const p = this.player;
+    if (this.level.indoor) this.setLevel(this.overworld);
+    this.zone = this.zoneAt(WORLD_PLACES.spawn[0] * TILE, WORLD_PLACES.spawn[1] * TILE);
     const [sx, sy] = WORLD_PLACES.spawn;
     p.placeAt(sx * TILE, sy * TILE, 0);
     p.hp = Math.ceil(p.maxHp / 2);
@@ -689,6 +880,14 @@ export class Game {
     }
     if (this.screen === 'impact') drawImpact(c, this);
     else drawHud(c, this);
+    if (this.transition) {
+      const tr = this.transition;
+      const h = tr.dur / 2;
+      const a = tr.t < h ? tr.t / h : Math.max(0, 1 - (tr.t - h) / h);
+      uiTransform(c);
+      c.fillStyle = `rgba(0, 0, 0, ${Math.min(1, a).toFixed(3)})`;
+      c.fillRect(0, 0, 1280, 720);
+    }
   }
 
   /** Dibujo sobre la iluminación (conos de visión, indicadores). */

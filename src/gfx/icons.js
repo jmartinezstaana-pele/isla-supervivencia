@@ -73,6 +73,22 @@ const DRAW = {
   metal(p) {
     p.poly([[2, 10], [9, 4], [14, 7], [8, 14]], C.metal[2]); p.line(3, 10, 9, 5, C.metal[4]); p.rect(9, 9, 3, 2, C.rust[2]); p.set(6, 11, C.rust[3]);
   },
+  tarjeta(p) {
+    p.rect(2, 4, 12, 8, rgb('#d8dcd8')); p.rect(2, 4, 12, 2, rgb('#3a64a0')); p.rect(2, 9, 12, 2, rgb('#1a1a1a'));
+    p.rect(3, 6, 3, 2, C.yellow[1]); p.set(10, 7, C.metal[2]); p.set(12, 7, C.metal[2]);
+  },
+  radio_rota(p) {
+    p.rect(2, 5, 12, 9, C.camo[1]); p.rect(2, 5, 12, 2, C.camo[2]); p.rect(4, 8, 5, 4, C.metal[0]);
+    p.circle(11, 10, 2, C.metal[3]); p.line(12, 5, 14, 1, C.metal[3]); p.line(6, 13, 9, 15, C.red[2]); p.line(8, 13, 5, 15, C.yellow[2]);
+  },
+  bateria(p) {
+    p.rect(3, 5, 10, 9, rgb('#2a2e30')); p.rect(3, 5, 10, 2, rgb('#454b4e')); p.rect(4, 3, 2, 2, C.red[2]); p.rect(10, 3, 2, 2, C.metal[3]);
+    p.rect(5, 9, 6, 2, C.yellow[2]);
+  },
+  cables(p) {
+    p.line(2, 12, 7, 4, C.red[2], 2); p.line(5, 14, 11, 5, C.yellow[2], 2); p.line(8, 14, 14, 8, rgb('#3a64a0'), 2);
+    p.set(7, 3, C.rust[4]); p.set(11, 4, C.rust[4]); p.set(14, 7, C.rust[4]);
+  },
   idolo(p) {
     p.rect(5, 3, 6, 11, rgb('#3a9a6a')); p.rect(5, 3, 2, 11, rgb('#6ad09a')); p.rect(6, 6, 1, 1, C.black); p.rect(9, 6, 1, 1, C.black);
     p.rect(6, 10, 4, 1, rgb('#1e5a3a')); p.rect(4, 13, 8, 2, rgb('#2a7a4e'));

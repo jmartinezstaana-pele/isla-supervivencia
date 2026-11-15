@@ -33,6 +33,8 @@ export const WORLD_PLACES = {
   cumbre: [96, 57],
   militar: { x: 168, y: 76, r: 11 },
   bunker: [172, 68.6],
+  /** Bocas de la cueva (sesión 6): tile de abajo de una pared de 3 columnas (x−1…x+1). A en la terraza 1, B en la 3. */
+  cueva: { a: [88, 93], b: [92, 68] },
   acantilados: { x0: 146, y1: 44 },
   bahia: { x: 199, y: 103, r: 15 },
   muelle: { y: 101 },

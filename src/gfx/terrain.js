@@ -15,14 +15,14 @@ export const CHUNK = 128;
 const MARGIN = 32;
 
 const SOFT = new Uint8Array(32);
-for (const g of [G.JUNGLE, G.GRASS, G.SAND, G.DIRT, G.SHALLOW, G.DEEP, G.RIVER, G.TALL_GRASS, G.SNOW, G.ROCK, G.MUD, G.SWAMP, G.GRAVEL, G.NEEDLES, G.CHASM]) SOFT[g] = 1;
+for (const g of [G.JUNGLE, G.GRASS, G.SAND, G.DIRT, G.SHALLOW, G.DEEP, G.RIVER, G.TALL_GRASS, G.SNOW, G.ROCK, G.MUD, G.SWAMP, G.GRAVEL, G.NEEDLES, G.CHASM, G.CAVE]) SOFT[g] = 1;
 const WATER = new Uint8Array(32);
 for (const g of [G.SHALLOW, G.DEEP, G.RIVER, G.WATERFALL, G.SWAMP]) WATER[g] = 1;
 // Prioridad de borde: el suelo de mayor prioridad dibuja el contorno sobre el de menor.
 const PRIORITY = new Int8Array(32).fill(-1);
 Object.entries({
   [G.JUNGLE]: 5, [G.TALL_GRASS]: 5, [G.GRASS]: 5, [G.NEEDLES]: 5, [G.SNOW]: 6, [G.ROCK]: 4, [G.DIRT]: 3, [G.GRAVEL]: 3,
-  [G.MUD]: 2, [G.SAND]: 2, [G.SHALLOW]: 0, [G.DEEP]: 0, [G.RIVER]: 0, [G.SWAMP]: 0, [G.STONE]: 4, [G.CONCRETE]: 4, [G.BRIDGE]: 7, [G.CHASM]: 1,
+  [G.MUD]: 2, [G.SAND]: 2, [G.SHALLOW]: 0, [G.DEEP]: 0, [G.RIVER]: 0, [G.SWAMP]: 0, [G.STONE]: 4, [G.CONCRETE]: 4, [G.BRIDGE]: 7, [G.CHASM]: 1, [G.CAVE]: 3,
 }).forEach(([k, v]) => { PRIORITY[k] = v; });
 const VEG = new Uint8Array(32);
 for (const g of [G.JUNGLE, G.GRASS, G.TALL_GRASS, G.NEEDLES]) VEG[g] = 1;
@@ -150,7 +150,8 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
   const lvl = new Uint8Array(N);
   const MW = map.width;
   const MH = map.height;
-  const gAt = (tx, ty) => (tx >= 0 && ty >= 0 && tx < MW && ty < MH ? map.ground[ty * MW + tx] : G.DEEP);
+  const outside = map.outside ?? G.DEEP; // fuera del mapa: mar en la isla, roca o negro en los interiores
+  const gAt = (tx, ty) => (tx >= 0 && ty >= 0 && tx < MW && ty < MH ? map.ground[ty * MW + tx] : outside);
   // Ventana de tiles de la región (con un tile de margen): evita comprobar límites por píxel.
   const wx0 = Math.floor(rx / TILE) - 1;
   const wy0 = Math.floor(ry / TILE) - 1;
@@ -347,6 +348,19 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
         case G.WATERFALL:
           c = C.stone[0];
           break;
+        case G.CAVE: {
+          const t = 0.3 + n * 0.35 + m * 0.25 + (b - 0.5) * 0.3 + (hpx - 0.5) * 0.12;
+          c = pick(C.cave, t);
+          if (hash2(gx >> 1, gy >> 1, 31) < 0.025) c = C.cave[4]; // guijarros
+          else if (hash2(gx >> 2, gy >> 2, 32) < 0.03) c = C.cave[0];
+          break;
+        }
+        case G.WALL:
+          c = C.caveWall[1];
+          break;
+        case G.VOID:
+          c = rgb('#0b0907');
+          break;
         default:
           c = C.stone[2];
       }
@@ -402,6 +416,7 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
   drawStone(ctx);
   drawBridges(ctx);
   drawHelipad(ctx);
+  if (map.theme) drawInterior(ctx);
 
   // 4) Contornos de cómic entre suelos (el de más prioridad dibuja el borde).
   const src = px.slice();
@@ -427,6 +442,7 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
       else if (g === G.MUD) px[i] = C.mud[0];
       else if (g === G.GRAVEL) px[i] = C.gravel[0];
       else if (g === G.STONE || g === G.BRIDGE || g === G.CONCRETE) px[i] = C.outline;
+      else if (g === G.CAVE) px[i] = C.cave[0];
       // Segundo píxel algo más oscuro: da volumen al borde.
       const k = i + (type[i + rw] === g ? rw : -rw);
       if (type[k] === g && (VEG[g] || g === G.SNOW)) px[k] = shade(src[k], g === G.SNOW ? 0.9 : 0.78);
@@ -443,6 +459,165 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
     kind[i] = g === G.SHALLOW || g === G.DEEP ? 1 : g === G.RIVER ? 2 : g === G.WATERFALL ? 3 : g === G.SWAMP ? 4 : 0;
   }
   return { pc, type, kind, dist: distToLand };
+}
+
+/** Altura (px) de la cara frontal de un muro de interior. */
+const FACE = 22;
+
+/**
+ * Muros y sombras de los interiores (sesión 6). Vista cenital: de cada muro se ve
+ * la parte de arriba (oscura) y, si debajo hay suelo, la cara frontal con la
+ * textura del interior (roca en la cueva, bloques de hormigón en el búnker, palos
+ * y barro en las cabañas). El suelo pegado a un muro recibe su sombra.
+ */
+function drawInterior({ map, pc, type, rx, ry, rw, rh, gAt }) {
+  const theme = map.theme;
+  const solid = (g) => g === G.WALL || g === G.VOID;
+  const px = pc.data;
+  if (theme === 'cueva') {
+    drawCaveWalls({ map, pc, type, rx, ry, rw, rh, gAt });
+    return;
+  }
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    const ty = Math.floor(gy / TILE);
+    const ly = gy - ty * TILE;
+    for (let x = 0; x < rw; x++) {
+      const i = y * rw + x;
+      const g = type[i];
+      const gx = rx + x;
+      const tx = Math.floor(gx / TILE);
+      const lx = gx - tx * TILE;
+      const b = bayer(gx, gy);
+      if (g === G.WALL) {
+        const below = gAt(tx, ty + 1);
+        const faceTop = TILE - FACE;
+        if (!solid(below) && ly >= faceTop) {
+          // Cara frontal.
+          const k = (ly - faceTop) / FACE; // 0 arriba, 1 abajo
+          let c;
+          if (theme === 'bunker') {
+            const row = Math.floor((gy - faceTop) / 7);
+            const off = (row % 2) * 8;
+            const bl = hash2(Math.floor((gx + off) / 16), row, 61);
+            c = pick(C.concrete, 0.55 - k * 0.35 + bl * 0.2 + (b - 0.5) * 0.1);
+            if ((gy - faceTop) % 7 === 0 || (gx + off) % 16 === 0) c = C.concrete[0];
+            if (ly >= TILE - 3) c = rgb('#2a2c2c');
+            if (ly < faceTop + 3 && ((gx >> 2) + (gy >> 2)) % 2 === 0) c = C.yellow[1]; // franja de aviso
+            else if (ly < faceTop + 3) c = rgb('#1a1a1a');
+          } else if (theme === 'cabana') {
+            const stick = (gx % 7 === 0) || (gx % 7 === 1);
+            c = stick ? C.wood[1 + (hash2(gx >> 3, 0, 62) > 0.5 ? 1 : 0)] : pick(C.dirt, 0.5 - k * 0.3 + (b - 0.5) * 0.25);
+            if (ly >= TILE - 2) c = C.wood[0];
+          } else {
+            const band = Math.floor((gy + Math.floor(hash2(gx >> 3, 0, 63) * 4)) / 5);
+            const bl = hash2(Math.floor((gx + band * 5) / 9), band, 64);
+            c = pick(C.stone, 0.55 - k * 0.4 + bl * 0.25 + (b - 0.5) * 0.15);
+            if ((gx + band * 5) % 9 === 0 && bl > 0.4) c = C.stone[0];
+            if (ly >= TILE - 2) c = C.caveWall[0];
+            if (hash2(gx, gy, 65) < 0.02) c = C.moss[0];
+          }
+          if (ly === faceTop) c = theme === 'cabana' ? C.thatch[3] : theme === 'bunker' ? C.concrete[4] : C.stone[4]; // canto
+          px[i] = c;
+        } else {
+          // Parte de arriba del muro.
+          let c;
+          if (theme === 'bunker') c = pick([rgb('#2c2e2e'), rgb('#333535'), rgb('#3a3c3c')], 0.5 + (b - 0.5) * 0.4 + (hash2(gx >> 2, gy >> 2, 66) - 0.5) * 0.3);
+          else if (theme === 'cabana') c = pick(C.thatch, 0.25 + (b - 0.5) * 0.3 + (hash2(gx >> 1, gy, 67) - 0.5) * 0.4);
+          else c = pick(C.caveWall, 0.45 + (b - 0.5) * 0.35 + (hash2(gx >> 2, gy >> 2, 68) - 0.5) * 0.5);
+          // Borde con el suelo a los lados y arriba: canto claro de 2 px y contorno.
+          const up = gAt(tx, ty - 1);
+          const left = gAt(tx - 1, ty);
+          const right = gAt(tx + 1, ty);
+          if ((!solid(up) && ly < 2) || (!solid(left) && lx < 2) || (!solid(right) && lx > TILE - 3)) c = C.outline;
+          px[i] = c;
+        }
+      } else if (!solid(g)) {
+        // Sombra de los muros sobre el suelo.
+        let s = 1;
+        if (solid(gAt(tx, ty - 1)) && ly < 8) s = Math.min(s, 0.55 + ly * 0.055);
+        if (solid(gAt(tx - 1, ty)) && lx < 4) s = Math.min(s, 0.7 + lx * 0.07);
+        if (solid(gAt(tx + 1, ty)) && lx > TILE - 5) s = Math.min(s, 0.7 + (TILE - 1 - lx) * 0.07);
+        if (s < 1) px[i] = shade(px[i], s);
+      }
+    }
+  }
+}
+
+/**
+ * Muros de la cueva con bordes orgánicos: la frontera entre roca y suelo se
+ * deforma con ruido (±5 px, solo en el dibujo; la colisión sigue por tiles), con
+ * canto oscuro, cara de roca con estratos y sombra en el suelo.
+ */
+function drawCaveWalls({ pc, type, rx, ry, rw, rh, gAt }) {
+  const px = pc.data;
+  const solid = (g) => g === G.WALL || g === G.VOID;
+  // 0 suelo, 1 parte de arriba de la roca, 2 cara frontal.
+  const m = new Uint8Array(rw * rh);
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    for (let x = 0; x < rw; x++) {
+      const gx = rx + x;
+      const wx = gx + (fbm(gx * 0.07, gy * 0.07, 81, 2) - 0.5) * 12;
+      const wy = gy + (fbm(gx * 0.07, gy * 0.07, 82, 2) - 0.5) * 12;
+      const tx = Math.floor(gx / TILE);
+      const ty = Math.floor(gy / TILE);
+      const ly = gy - ty * TILE;
+      const own = gAt(tx, ty);
+      if (own === G.WALL && !solid(gAt(tx, ty + 1))) {
+        const faceTop = TILE - FACE + Math.round((fbm(gx * 0.11, ty, 83, 2) - 0.5) * 10);
+        m[y * rw + x] = ly >= faceTop ? 2 : 1;
+        continue;
+      }
+      const wtx = Math.floor(wx / TILE);
+      const wty = Math.floor(wy / TILE);
+      let s = solid(gAt(wtx, wty));
+      // No invadir la cara frontal de un muro con suelo, ni comerse el suelo pegado a una cara.
+      if (s && !solid(own) && solid(gAt(tx, ty - 1)) && !solid(gAt(tx, ty))) s = ly < 2;
+      m[y * rw + x] = s ? 1 : 0;
+    }
+  }
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    for (let x = 0; x < rw; x++) {
+      const i = y * rw + x;
+      const gx = rx + x;
+      const b = bayer(gx, gy);
+      const k = m[i];
+      if (k === 2) {
+        const ty = Math.floor(gy / TILE);
+        let top = y;
+        while (top > 0 && m[top * rw - rw + x] === 2) top--;
+        const d = y - top; // px desde el canto
+        const band = Math.floor((gy + Math.floor(hash2(gx >> 3, 0, 63) * 4)) / 5);
+        const bl = hash2(Math.floor((gx + band * 5) / 9), band, 64);
+        let c = pick(C.stone, 0.62 - (d / FACE) * 0.45 + bl * 0.22 + (b - 0.5) * 0.15);
+        if ((gx + band * 5) % 9 === 0 && bl > 0.4) c = C.stone[0];
+        if (hash2(gx, gy, 65) < 0.02) c = C.moss[0];
+        if (d === 0) c = C.stone[4];
+        if (gy >= (ty + 1) * TILE - 2) c = C.caveWall[0];
+        px[i] = c;
+      } else if (k === 1) {
+        let c = pick(C.caveWall, 0.45 + (b - 0.5) * 0.35 + (hash2(gx >> 2, gy >> 2, 68) - 0.5) * 0.5);
+        const edge = (x > 0 && m[i - 1] === 0) || (x < rw - 1 && m[i + 1] === 0) || (y > 0 && m[i - rw] === 0) || (y < rh - 1 && m[i + rw] === 0);
+        if (edge) c = C.outline;
+        else if ((y < rh - 1 && m[i + rw] === 2)) c = C.outline;
+        px[i] = c;
+      } else {
+        // Suelo (también donde la deformación come un poco de muro).
+        if (solid(type[i])) px[i] = pick(C.cave, 0.35 + (b - 0.5) * 0.3 + (hash2(gx >> 1, gy >> 1, 69) - 0.5) * 0.3);
+        // Sombra al pie de la roca.
+        let sh = 1;
+        for (let k2 = 1; k2 <= 7; k2++) {
+          if (y - k2 >= 0 && m[i - k2 * rw] !== 0) { sh = Math.min(sh, 0.5 + k2 * 0.07); break; }
+        }
+        for (let k2 = 1; k2 <= 3; k2++) {
+          if ((x - k2 >= 0 && m[i - k2] !== 0) || (x + k2 < rw && m[i + k2] !== 0)) { sh = Math.min(sh, 0.68 + k2 * 0.08); break; }
+        }
+        if (sh < 1) px[i] = shade(px[i], sh);
+      }
+    }
+  }
 }
 
 /** Losas de piedra con juntas, grietas y musgo (suelo de las ruinas). */

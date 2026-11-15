@@ -47,7 +47,7 @@ export class PropGrid {
 export function tileBlocks(map, tx, ty, level, airborne = false) {
   if (!map.inBounds(tx, ty)) return true;
   const g = map.groundAt(tx, ty);
-  if (g === G.CLIFF || g === G.LEDGE_S || g === G.RIVER || g === G.WATERFALL) return true;
+  if (g === G.CLIFF || g === G.LEDGE_S || g === G.RIVER || g === G.WATERFALL || g === G.WALL || g === G.VOID) return true;
   if (g === G.CHASM && !airborne) return true;
   return map.levelAt(tx, ty) !== level;
 }
@@ -146,7 +146,7 @@ export function lineOfSight(world, x0, y0, x1, y1, level = 0) {
     const tx = Math.floor(x / TILE);
     const ty = Math.floor(y / TILE);
     const g = world.map.groundAt(tx, ty);
-    if (g === G.CLIFF || g === -1 || world.map.levelAt(tx, ty) > level) return false;
+    if (g === G.CLIFF || g === G.WALL || g === G.VOID || g === -1 || world.map.levelAt(tx, ty) > level) return false;
     for (const p of world.grid.query({ x, y, w: 1, h: 1 })) {
       if (p.opaque && x >= p.col.x && x <= p.col.x + p.col.w && y >= p.col.y - 6 && y <= p.col.y + p.col.h) return false;
     }

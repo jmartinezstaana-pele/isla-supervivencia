@@ -107,8 +107,9 @@ export class Renderer {
     // Suelo pintado por trozos (los que falten se pintan ahora).
     g.terrain.draw(l, cam.ix, cam.iy, LOW_W, LOW_H);
     cam.apply(l);
+    const indoor = g.level && g.level.indoor;
     g.water.draw(l, cam, t);
-    g.weather.drawPuddles(l, cam, t);
+    if (!indoor) g.weather.drawPuddles(l, cam, t);
 
     const items = this.collect(cam);
     // Sombras primero (debajo de todo lo que tiene volumen).
@@ -124,12 +125,14 @@ export class Renderer {
     }
     this.lastOrder = items;
     g.particles.draw(l);
-    g.ambience.drawClouds(l, cam, t, g.cloudStrength ?? 1);
-    g.ambience.drawFog(l, cam, t, g.fogStrength ?? 0);
+    if (!indoor) {
+      g.ambience.drawClouds(l, cam, t, g.cloudStrength ?? 1);
+      g.ambience.drawFog(l, cam, t, g.fogStrength ?? 0);
+    }
     cam.apply(l);
     g.lighting.draw(l, g);
     cam.apply(l);
-    g.weather.draw(l);
+    if (!indoor) g.weather.draw(l);
     g.afterWorld(l, cam, t);
 
     display.ox = display.oy = 0;

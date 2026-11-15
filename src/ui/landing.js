@@ -101,9 +101,9 @@ export class LandingScreen {
 
   /** Pinta el mapa de la isla (una vez; tarda unas décimas). */
   prepare() {
-    if (!this.paint) this.paint = paintLandingMap(this.game.map);
-    this.LW = this.game.map.width;
-    this.LH = this.game.map.height;
+    if (!this.paint) this.paint = paintLandingMap(this.islandMap);
+    this.LW = this.islandMap.width;
+    this.LH = this.islandMap.height;
   }
 
   reset() {
@@ -127,7 +127,7 @@ export class LandingScreen {
 
   /** Zona bajo el avión. */
   get zone() {
-    return landingZoneAt(this.game.map, this.x, this.y);
+    return landingZoneAt(this.islandMap, this.x, this.y);
   }
 
   say(textMsg) {
@@ -219,6 +219,11 @@ export class LandingScreen {
       const v = 4 + Math.random() * 12;
       this.puffs.push({ x: this.x, y: this.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, alt: 0, age: 0, life: 0.6 + Math.random() * 0.8, kind: 'debris', color: colors[i % colors.length] });
     }
+  }
+
+  /** Mapa de la isla (aunque el jugador esté en un interior). */
+  get islandMap() {
+    return this.game.island ? this.game.island.map : this.game.map;
   }
 
   // --------------------------------------------------------------- dibujo
@@ -330,7 +335,7 @@ export class LandingScreen {
     c.drawImage(this.low, 0, 0, VIEW_W, VIEW_H);
     const S = PIXEL_SCALE;
     // Etiquetas de las zonas.
-    for (const [id, cz] of Object.entries(this.game.map.zoneCenters)) {
+    for (const [id, cz] of Object.entries(this.islandMap.zoneCenters)) {
       if (id === 'mar' || cz.n < 30) continue;
       text(c, ZONES[id][0], (MX + cz.x * LAND_PX) * S, (MY + cz.y * LAND_PX) * S, { size: 13, align: 'center', color: '#fff6dc', outline: 4 });
     }

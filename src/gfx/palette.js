@@ -49,6 +49,9 @@ export const C = {
   mangrove: ['#142012', '#1f3119', '#2d4522', '#3d5b2b', '#517336'].map((c) => rgb(c)),
   rust: ['#3a1e10', '#5e3018', '#844822', '#a8642e', '#c88848'].map((c) => rgb(c)),
   canvas: ['#262c18', '#3a4224', '#4f5a30', '#66723e', '#7f8a4e'].map((c) => rgb(c)),
+  // Interiores (sesión 6).
+  cave: ['#2a251f', '#39322a', '#494036', '#5a4f42', '#6c5f4e'].map((c) => rgb(c)),
+  caveWall: ['#120f0c', '#1b1713', '#25201a', '#302921'].map((c) => rgb(c)),
   thatch: ['#4a3414', '#6e5020', '#94722e', '#b8963e', '#d8b85a'].map((c) => rgb(c)),
   shadow: rgb('#000000', 90),
   black: rgb('#000000'),
