@@ -50,15 +50,14 @@ const calm = (page) => page.evaluate(() => {
   g.weather.timer = 9999;
 });
 
-test('carga desde file:// sin errores: título y luego la isla', async ({ page }) => {
+test('carga desde file:// sin errores: título y, con el atajo de pruebas, la isla', async ({ page }) => {
   const errors = await openGame(page, { start: false });
   expect(await page.evaluate(() => window.__isla.game.screen)).toBe('title');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(300);
+  await page.evaluate(() => window.__isla.start());
   expect(await page.evaluate(() => window.__isla.game.screen)).toBe('play');
   const p = await player(page);
   expect(p.state).toBe('walk');
-  expect(p.hp).toBe(100);
+  expect(p.hp).toBe(p.maxHp);
   expect(errors).toEqual([]);
 });
 
@@ -333,7 +332,7 @@ test('muere y reaparece en la playa', async ({ page }) => {
   await page.evaluate(() => { window.__isla.game.player.hp = 0; });
   await step(page, 3.5);
   const p = await player(page);
-  expect(p.hp).toBe(60);
+  expect(p.hp).toBe(Math.ceil(p.maxHp / 2)); // reaparece con la mitad de la vida (TRASPASO §2.4)
   expect([p.tx, p.ty]).toEqual([17, 20]);
   expect(errors).toEqual([]);
 });
