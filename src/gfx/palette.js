@@ -9,12 +9,13 @@ export const C = {
   // Vegetación (de oscuro a claro)
   leaf: ['#13280f', '#1f3f18', '#2d5a22', '#3f7a2c', '#5a9a35', '#86bf4a'].map((c) => rgb(c)),
   jungleLeaf: ['#0c1d0c', '#143316', '#1f4a20', '#2d6529', '#428334', '#64a645'].map((c) => rgb(c)),
+  oliveLeaf: ['#16200a', '#26360f', '#3a4d16', '#536a1f', '#6f8a2a', '#93ad3a'].map((c) => rgb(c)),
   palmLeaf: ['#1d3d14', '#2f5e1d', '#467f27', '#64a032', '#8dc24a'].map((c) => rgb(c)),
   grass: ['#244a1c', '#2f5d22', '#3b6f28', '#4a812f', '#5c9437'].map((c) => rgb(c)),
   jungleFloor: ['#14270f', '#1a3314', '#213f19', '#294b1e', '#335824'].map((c) => rgb(c)),
   moss: ['#3a5a1e', '#557a26', '#76a033'].map((c) => rgb(c)),
   // Piedra
-  stone: ['#3b3a30', '#55544a', '#6e6c5f', '#878472', '#a19e88'].map((c) => rgb(c)),
+  stone: ['#30322a', '#47493c', '#5d5f4f', '#757662', '#8f8e75'].map((c) => rgb(c)),
   // Tierra y camino
   dirt: ['#5e4224', '#72522d', '#866237', '#997341', '#ad864f'].map((c) => rgb(c)),
   // Arena

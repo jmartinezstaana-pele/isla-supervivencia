@@ -89,7 +89,7 @@ export function buildProps(map) {
     fire: { size: 1.2, dy: -6 }, light: { r: 130, color: [255, 170, 80], flicker: true },
   }));
   void fire;
-  for (const [tx, ty, v] of [[71, 15.4, 0], [79.6, 15.6, 1], [80.6, 24.6, 2]]) {
+  for (const [tx, ty, v] of [[71, 15.4, 0], [79.6, 15.6, 1], [78.9, 24.4, 2]]) {
     add(makeProp('tienda', sprite('tienda', v, () => S.tent(11 + v)), T(tx), T(ty)));
   }
   for (const [tx, ty] of [[68.1, 18.2], [68.1, 22.8], [73.6, 27.2], [76.4, 27.2]]) {
@@ -112,6 +112,15 @@ export function buildProps(map) {
     loot: [['cecina', 1], ['venda', 1], ['piedra', 3]], openSprite: sprite('cofre', 1, () => S.chest(0, true)),
   }));
   add(makeProp('totem', sprite('totem', 1, () => S.totem(8)), T(75), T(13.7)));
+  // Decoración del campamento: troncos para sentarse, provisiones, piedras y matas.
+  add(makeProp('tronco', sprite('tronco', 3, () => S.log(31)), T(75), T(22.3)));
+  add(makeProp('tronco', sprite('tronco', 4, () => S.log(32)), T(75.2), T(18.2)));
+  for (const [tx, ty, v] of [[81.1, 21.3, 5], [81.0, 22.2, 6], [72.8, 25.2, 7]]) add(makeProp('caja', sprite('caja', v, () => S.crate(v, 0.8)), T(tx), T(ty)));
+  for (const [tx, ty] of [[70.3, 19.2], [70.9, 18.7], [82.3, 17.4]]) add(makeProp('barril', sprite('barril', 0, () => S.barrel(1)), T(tx), T(ty)));
+  for (const [tx, ty, v] of [[69.6, 24.6, 0], [73.2, 13.9, 1], [81.9, 25.6, 2], [77.8, 27.1, 0]]) add(makeProp('arbusto', sprite('arbusto', v, () => S.bush(40 + v)), T(tx), T(ty)));
+  for (const [tx, ty, v] of [[78.6, 26.4, 0], [70.1, 15.9, 1]]) add(makeProp('roca', sprite('rocaCampo', v, () => S.rock(60 + v, 0.9)), T(tx), T(ty)));
+  add(makeProp('calavera', sprite('calavera', 0, S.skullPole), T(73.2), T(27.6)));
+  add(makeProp('calavera', sprite('calavera', 0, S.skullPole), T(76.8), T(27.6)));
   add(makeProp('calavera', sprite('calavera', 0, S.skullPole), T(69.2), T(20.6)));
   // Empalizada en círculo, con huecos al oeste y al sur.
   const R = PLACES.campRadius * TILE + 6;

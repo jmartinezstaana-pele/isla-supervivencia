@@ -44,9 +44,11 @@ function text(c, str, x, y, { size = 16, color = '#fff6dc', align = 'left', bold
   c.textAlign = align;
   c.textBaseline = 'middle';
   c.lineJoin = 'round';
-  c.lineWidth = outline;
-  c.strokeStyle = '#17150f';
-  c.strokeText(str, x, y);
+  if (outline > 0) {
+    c.lineWidth = outline;
+    c.strokeStyle = '#17150f';
+    c.strokeText(str, x, y);
+  }
   c.fillStyle = color;
   c.fillText(str, x, y);
 }

@@ -106,10 +106,13 @@ export function buildIsland() {
     const c = riverX(y);
     for (let x = Math.round(c - 1.6); x <= Math.round(c + 1.4); x++) map.setTile(x, y, G.RIVER, 0);
   }
-  // Puente colgante sobre el río.
+  // Puente colgante sobre el río: rectángulo uniforme de orilla a orilla.
+  let bx0 = Infinity;
+  let bx1 = -Infinity;
   for (let y = PLACES.bridge.y0; y <= PLACES.bridge.y1; y++) {
-    for (let x = 40; x < 56; x++) if (map.groundAt(x, y) === G.RIVER) map.setTile(x, y, G.BRIDGE, 0);
+    for (let x = 40; x < 56; x++) if (map.groundAt(x, y) === G.RIVER) { bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); }
   }
+  for (let y = PLACES.bridge.y0; y <= PLACES.bridge.y1; y++) for (let x = bx0; x <= bx1; x++) map.setTile(x, y, G.BRIDGE, 0);
 
   // Claro del campamento.
   const [cx, cy] = PLACES.camp;

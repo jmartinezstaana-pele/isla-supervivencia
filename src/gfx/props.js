@@ -135,7 +135,7 @@ export function jungleTree(seed) {
   trunk.outline(C.outline);
   const top = new PixelCanvas(W, H);
   const cy = trunkTop - (big ? 22 : 18);
-  canopy(top, baseX, cy, big ? 50 : 40, big ? 30 : 24, r, C.jungleLeaf, big ? 60 : 44);
+  canopy(top, baseX, cy, big ? 50 : 40, big ? 30 : 24, r, r.next() < 0.3 ? C.oliveLeaf : C.jungleLeaf, big ? 60 : 44);
   // Lianas colgando de la copa.
   for (let k = 0; k < r.int(3, 6); k++) {
     const lx = baseX + r.int(-30, 30);

@@ -227,7 +227,7 @@ export function renderTerrain(map) {
           else if (d < 40) base = mix(C.waterMid, C.waterDeep, (d - 14) / 26);
           else base = mix(C.waterDeep, C.waterDeepest, Math.min(1, (d - 40) / 20));
           // Bandas de color con trama (pixel art, no degradado liso).
-          c = waterBand(g, d + (b - 0.5) * 5 + (n - 0.5) * 6);
+          c = waterBand(g, d + (b - 0.5) * 2.5 + (n - 0.5) * 3);
           break;
         }
         case G.CHASM:
@@ -300,34 +300,46 @@ function drawStone(pc, map, type) {
   }
 }
 
-/** Puente colgante: tablones con huecos, cuerdas en los bordes. */
+/** Puente colgante: tablones con huecos y barandillas de cuerda que se combean. */
 function drawBridge(pc, map) {
+  // Rectángulos de puente (filas contiguas).
   for (let ty = 0; ty < map.height; ty++) {
     for (let tx = 0; tx < map.width; tx++) {
-      if (map.groundAt(tx, ty) !== G.BRIDGE) continue;
-      const north = map.groundAt(tx, ty - 1) !== G.BRIDGE;
-      const south = map.groundAt(tx, ty + 1) !== G.BRIDGE;
-      for (let y = 0; y < TILE; y++) {
-        for (let x = 0; x < TILE; x++) {
-          const gx = tx * TILE + x;
-          const gy = ty * TILE + y;
-          const plank = (gx / 6) | 0;
-          const lx = gx % 6;
-          const sag = Math.round(Math.sin((gx / (TILE * 6)) * Math.PI) * 2);
+      if (map.groundAt(tx, ty) !== G.BRIDGE || map.groundAt(tx - 1, ty) === G.BRIDGE || map.groundAt(tx, ty - 1) === G.BRIDGE) continue;
+      let tx1 = tx;
+      while (map.groundAt(tx1 + 1, ty) === G.BRIDGE) tx1++;
+      let ty1 = ty;
+      while (map.groundAt(tx, ty1 + 1) === G.BRIDGE) ty1++;
+      const x0 = tx * TILE - 6;
+      const x1 = (tx1 + 1) * TILE + 6;
+      const y0 = ty * TILE + 4;
+      const y1 = (ty1 + 1) * TILE - 4;
+      const span = x1 - x0;
+      for (let x = x0; x < x1; x++) {
+        const sag = Math.round(Math.sin(((x - x0) / span) * Math.PI) * 3);
+        const plank = Math.floor((x - x0) / 6);
+        const lx = (x - x0) % 6;
+        const tone = hash2(plank, ty, 21);
+        // Sombra del puente sobre el agua.
+        for (let y = y1 + sag; y < y1 + sag + 4; y++) pc.set(x, y, shade(pc.get(x, y), 0.6));
+        for (let y = y0 + sag; y < y1 + sag; y++) {
           let c;
-          if (lx === 5) c = shade(C.river, 0.55); // hueco entre tablones
+          if (lx === 5) c = C.wood[0];
           else {
-            const t = hash2(plank, ty, 21);
-            c = C.wood[2 + Math.floor(t * 3)];
+            const jitter = Math.floor(hash2(plank, 3, 9) * 3) - 1;
+            if (y < y0 + sag + 2 + jitter || y > y1 + sag - 3 + jitter) { if (y < y0 + sag + 1 || y > y1 + sag - 2) continue; }
+            c = C.wood[2 + Math.floor(tone * 3)];
             if (lx === 0) c = C.wood[4];
             if (lx === 4) c = C.wood[1];
-            if (hash2(gx, gy, 4) < 0.05) c = C.wood[1];
+            if (hash2(x, y, 4) < 0.04) c = C.wood[1];
           }
-          if (north && y < 3 + sag) c = shade(C.river, 0.6);
-          if (south && y > TILE - 4 + sag) c = shade(C.river, 0.6);
-          if (north && (y === 3 + sag || y === 4 + sag)) c = y === 3 + sag ? C.rope[2] : C.rope[0];
-          if (south && (y === TILE - 5 + sag || y === TILE - 4 + sag)) c = y === TILE - 5 + sag ? C.rope[2] : C.rope[0];
-          pc.set(gx, gy, c);
+          pc.set(x, y, c);
+        }
+        // Cuerdas a lo largo, algo por encima de los tablones.
+        for (const [ry, dark] of [[y0 + sag - 2, false], [y1 + sag - 3, true]]) {
+          pc.set(x, ry, C.rope[2]);
+          pc.set(x, ry + 1, dark ? C.rope[0] : C.rope[1]);
+          if ((x - x0) % 12 === 0) for (let k = 2; k < 6; k++) pc.set(x, ry + k, C.rope[0]);
         }
       }
     }
@@ -339,16 +351,23 @@ function drawDecals(pc, map, type) {
   const W = pc.w;
   for (let ty = 0; ty < map.height; ty++) {
     for (let tx = 0; tx < map.width; tx++) {
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < 10; k++) {
         const r = hash2(tx * 7 + k, ty * 13 + k, 31);
         const x = tx * TILE + Math.floor(hash2(tx, ty * 3 + k, 41) * TILE);
         const y = ty * TILE + Math.floor(hash2(tx * 5 + k, ty, 51) * TILE);
         const g = type[y * W + x];
         if (g === G.JUNGLE || g === G.GRASS) {
-          if (r < 0.28) { // plantita en V
+          if (r < 0.2) { // plantita en V
             const col = g === G.JUNGLE ? C.jungleLeaf[4] : C.grass[4];
             pc.set(x, y, col); pc.set(x - 1, y - 1, col); pc.set(x + 1, y - 1, col);
             pc.set(x, y + 1, C.outlineGreen);
+          } else if (r < 0.3) { // mata de hierba de 4 briznas
+            const cols = g === G.JUNGLE ? C.jungleLeaf : C.grass;
+            for (let b2 = -2; b2 <= 2; b2 += 1) {
+              const hgt = 3 - Math.abs(b2) + (b2 === 0 ? 1 : 0);
+              for (let k2 = 0; k2 < hgt; k2++) pc.set(x + b2 + (k2 > 1 ? Math.sign(b2) : 0), y - k2, cols[2 + Math.min(2, k2)]);
+            }
+            pc.set(x - 1, y + 1, C.outlineGreen); pc.set(x, y + 1, C.outlineGreen); pc.set(x + 1, y + 1, C.outlineGreen);
           } else if (r < 0.4 && g === G.JUNGLE) { // hoja caída
             const col = r < 0.34 ? rgb('#6b5a22') : rgb('#4a3a18');
             pc.set(x, y, col); pc.set(x + 1, y, col); pc.set(x + 1, y + 1, C.outlineGreen);
@@ -382,7 +401,7 @@ function drawDecals(pc, map, type) {
 function drawCliffs(pc, map, type) {
   const W = pc.w;
   // Bloques irregulares por bandas horizontales.
-  const bandH = (b) => 9 + Math.floor(hash2(b, 0, 61) * 4);
+  const bandH = (b) => 10 + Math.floor(hash2(b, 0, 61) * 7);
   for (let tx = 0; tx < map.width; tx++) {
     for (let ty = 0; ty < map.height; ty++) {
       if (!map.isCliff(tx, ty)) continue;
@@ -397,13 +416,15 @@ function drawCliffs(pc, map, type) {
         for (let x = tx * TILE; x < (tx + 1) * TILE; x++) {
           // Bloques de anchura 12–22 px por banda.
           const off = Math.floor(hash2(band, 1, 71) * 20);
-          const bw = 12 + Math.floor(hash2(band, 2, 81) * 8);
+          const bw = 15 + Math.floor(hash2(band, 2, 81) * 14);
           const bx = Math.floor((x + off) / bw);
           const lx = (x + off) % bw;
+          // Esquinas redondeadas: los bloques parecen piedras, no ladrillos.
+          const corner = (lx <= 1 || lx >= bw - 2) && (ly <= 1 || ly >= bh - 2);
           const tone = hash2(bx, band, 91);
           let c = pick(C.stone, 0.35 + tone * 0.45 + (bayer(x, y) - 0.5) * 0.25);
-          if (ly === 0 || lx === 0) c = C.outline;
-          else if (ly === 1) c = C.stone[4];
+          if (ly === 0 || lx === 0 || corner) c = C.outline;
+          else if (ly === 1 || (ly === 2 && lx < bw * 0.4)) c = C.stone[4];
           else if (lx === 1) c = C.stone[3];
           else if (ly === bh - 1 || lx === bw - 1) c = C.stone[1];
           if (hash2(x, y, 13) < 0.03) c = C.stone[0]; // grietas
@@ -411,6 +432,7 @@ function drawCliffs(pc, map, type) {
           const rel = (y - top) / (3 * TILE);
           const mossN = fbm(x / 9, y / 9, 17, 2) + (1 - rel) * 0.35;
           if (mossN > 0.78) c = C.moss[mossN > 0.86 ? 2 : bayer(x, y) > 0.5 ? 1 : 0];
+          if (rel > 0.75 && bayer(x, y) < (rel - 0.75) * 3) c = shade(c, 0.7); // oscurece al pie
           pc.data[y * W + x] = c;
         }
       }
