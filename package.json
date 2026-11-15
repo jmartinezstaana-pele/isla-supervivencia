@@ -1,0 +1,16 @@
+{
+  "name": "isla-supervivencia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Juego de supervivencia en una isla: aterrizaje, sigilo, plataformas y huida. Un único HTML para navegador.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch",
+    "test": "node build.mjs && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "esbuild": "0.28.2"
+  }
+}
