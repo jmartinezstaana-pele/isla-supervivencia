@@ -15,7 +15,7 @@ Cada decisión lleva una etiqueta:
 | **[RECOMENDACIÓN]** | Diseño o propuesta técnica de Claude que **no** se llegó a comunicar ni validar. Es un punto de partida, no una decisión. |
 | **[PENDIENTE]** | Pregunta abierta que debe decidir Javier. |
 
-> ⚠️ **Aviso importante sobre el contexto del proyecto.** El proyecto de claude.ai "Juego" tiene unas instrucciones permanentes que describen **otro videojuego**: supervivencia urbana en 3D con Godot 4, ciudad, NPC, economía, etc. **Este traspaso no trata de ese juego.** Javier pidió este juego de la isla como "una prueba", con una visión propia. No hay que mezclar los dos diseños. Las instrucciones del proyecto urbano piden Godot si el repositorio está vacío; para este juego, la tecnología acordada por delegación es otra (ver §2.1). **[PENDIENTE]** Hay que confirmar con Javier si el repositorio de GitHub es para este juego de la isla o para el juego urbano.
+> ⚠️ **Aviso importante sobre el contexto del proyecto.** El proyecto de claude.ai "Juego" tiene unas instrucciones permanentes que describen **otro videojuego**: supervivencia urbana en 3D con Godot 4, ciudad, NPC, economía, etc. **Este traspaso no trata de ese juego.** Javier pidió este juego de la isla como "una prueba", con una visión propia. No hay que mezclar los dos diseños. Las instrucciones del proyecto urbano piden Godot si el repositorio está vacío; para este juego, la tecnología acordada por delegación es otra (ver §2.1). **[ACORDADO-USUARIO] (15/11/2026)** Javier ha confirmado que el repositorio es para **este juego de la isla**.
 
 ---
 
@@ -144,7 +144,8 @@ Cada decisión lleva una etiqueta:
 
 - **[ACORDADO-DELEGADO]** Juego **para navegador**, entregado como **un solo archivo HTML** que se abre **con doble clic, sin instalar nada**, y se juega con **teclado y ratón**.
 - **[ACORDADO-DELEGADO]** **Vista lateral en 2D** (estilo Terraria o Dead Cells) para jugar, y **mapa cenital** solo para el **aterrizaje** y como **mapa del juego**.
-- **[PENDIENTE / revisar]** Las hojas `Andar.png` y `Correr.png` traen **4 direcciones** (arriba, abajo, izquierda y derecha), lo que también encajaría con una vista cenital. Javier las envió **después** de delegar la elección de la vista lateral. La vista lateral sigue en pie, pero conviene confirmarla con él.
+- **[ACORDADO-USUARIO] (15/11/2026)** Javier confirma: **juego de navegador en un solo HTML** y **vista lateral 2D**.
+- *(Resuelto)* Las hojas `Andar.png` y `Correr.png` traen **4 direcciones** (arriba, abajo, izquierda y derecha), lo que también encajaría con una vista cenital. Javier las envió **después** de delegar la elección de la vista lateral. La vista lateral sigue en pie, pero conviene confirmarla con él.
 
 **[RECOMENDACIÓN] Stack**
 
@@ -338,6 +339,8 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (sesión 1 de Claude Code):** Fases 0 y 1 terminadas. Hay build a un único HTML, pruebas de Playwright y un personaje que anda, corre, salta, se agacha, baja de plataformas y nada en un mundo de prueba. Detalle en `docs/CHANGELOG.md`. Lo que sigue en esta sección describe el estado anterior a la sesión 1.
+
 **No hay código del juego.** Se paró la implementación antes de escribir el motor. Lo que sí existe:
 
 1. **Diseño acordado:** §1 y la parte de §2 marcada como acordada.
@@ -396,14 +399,14 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 3. **Escalas entre animaciones:** se ajustaron a ojo (`scales` en el script). Hay que revisarlas en el juego para que el personaje no "cambie de tamaño" entre andar, correr y saltar.
 4. **Orientación de `jump`:** casi todos los fotogramas miran a la derecha, pero conviene confirmarlo fotograma a fotograma.
 5. **Texto incrustado** en `avion.jpg` y `paisaje.jpg` (ver §1.6).
-6. **Vista lateral frente a cenital** (ver §2.1). El clima ya está resuelto: varios biomas con selva, lluvia y oscuridad (ver §1.6).
-7. **Contradicción con las instrucciones del proyecto "Juego"** (juego urbano en Godot). Hay que aclarar qué juego va en el repositorio.
+6. ~~**Vista lateral frente a cenital**~~ (resuelto: vista lateral, ver §2.1). El clima ya está resuelto: varios biomas con selva, lluvia y oscuridad (ver §1.6).
+7. ~~**Contradicción con las instrucciones del proyecto "Juego"**~~ (resuelto: el repositorio es del juego de la isla).
 
 ### 3.6 Preguntas abiertas para Javier
 
-1. ¿El repositorio es para este juego de la isla o para el juego urbano de las instrucciones del proyecto?
-2. ¿Se mantiene "un solo HTML para navegador", o, al pasar a un repositorio, preferiría otro motor (por ejemplo, Godot)?
-3. ¿Vista lateral (acordada por delegación) o cenital, ahora que hay hojas de sprites en 4 direcciones?
+1. ~~¿El repositorio es para este juego de la isla o para el juego urbano de las instrucciones del proyecto?~~ **Resuelta:** es para el juego de la isla.
+2. ~~¿Se mantiene "un solo HTML para navegador", o, al pasar a un repositorio, preferiría otro motor (por ejemplo, Godot)?~~ **Resuelta:** un solo HTML para navegador.
+3. ~~¿Vista lateral (acordada por delegación) o cenital, ahora que hay hojas de sprites en 4 direcciones?~~ **Resuelta:** vista lateral 2D.
 4. ~~¿Isla tropical, nevada o mixta?~~ **Resuelta:** varios climas y biomas, con selva, lluvia y oscuridad (§1.6).
 5. ¿Tono realista y oscuro, o aventura?
 6. Al morir: ¿reaparecer en el refugio (lo recomendado) o empezar de cero?
