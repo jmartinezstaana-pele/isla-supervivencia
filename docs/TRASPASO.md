@@ -592,6 +592,49 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 - **Transiciones** de entrada y salida al estilo Pokémon, con fundido.
 - **Terminado cuando:** se puede entrar y salir de cueva, búnker y cabañas. La cueva conecta dos alturas del monte. La tarjeta abre el búnker. Hay pruebas automáticas de ello.
 
+#### Sesión 6 — AÑADIDO OBLIGATORIO: nitidez y definición del protagonista
+
+> **[ACORDADO-USUARIO] (15/11/2026)** Javier: *"el personaje se ve un poco raro incluso cuando eliges la vestimenta, muy poco definido y muy pixelado"*. Se resuelve en esta sesión, **antes** de las cuevas, el búnker y las cabañas.
+
+**Diagnóstico (revisado en el código actual):**
+
+1. `scaleAtlas()` (`src/gfx/characters.js`) **reduce el atlas a la mitad** (96 → 48 px), con suavizado y binarizando la transparencia. Se pierde la mitad del detalle de los sprites de Javier y el contorno queda dentado.
+2. El personaje se dibuja en el canvas de **baja resolución (640 × 360)**, que se amplía ×2. En pantallas de 1080p el canvas de 1280 × 720 se vuelve a escalar ×1,5 con suavizado, así que el resultado es borroso **y** a bloques a la vez.
+3. La **vista previa de la creación** amplía ese sprite de 48 px unas 8 veces, de ahí el aspecto tosco. Además, el borde superior del panel corta la cabeza.
+4. El **recoloreado** se hace sobre el sprite ya reducido, así que la clasificación por píxel (piel, camiseta, pantalón, pañuelo) deja manchas sueltas y bordes sucios.
+
+**Qué hay que hacer** [RECOMENDACIÓN técnica; el objetivo es ACORDADO-USUARIO]:
+
+1. **No reducir el atlas.** Usar los sprites a su resolución original (96 px de alto) y dibujar los personajes en el canvas de **alta resolución**, a 1:1 sobre 1280 × 720. Ocupan lo mismo en pantalla que ahora, pero con **4 veces más píxeles**. Hay que mantener la ordenación por profundidad con props y árboles. Opciones:
+   - dibujar todo el mundo en el canvas de alta resolución (terreno y props prerenderizados escalados ×2 sin suavizado y personajes a 1:1);
+   - o componer por capas respetando el orden de la y.
+2. **Nitidez en cualquier pantalla:**
+   - ajustar el canvas al tamaño real de la ventana × `devicePixelRatio`;
+   - usar **escalado entero** cuando sea posible (×1, ×2, ×3) y `imageSmoothingEnabled = false`;
+   - evitar el reescalado final borroso por CSS (`image-rendering: pixelated` si hace falta);
+   - el HUD y el texto se dibujan a resolución real.
+3. **Recoloreado de calidad**, sobre el atlas a resolución completa:
+   - **no tocar el contorno negro ni las sombras más oscuras**;
+   - conservar la luminancia y el contraste del original (rampa de 3–4 tonos por color elegido, no un tinte plano);
+   - limpiar la máscara de cada parte (filtro de mayoría o suavizado) para que no queden píxeles sueltos de otro color;
+   - revisar que los 7 colores de pelo/pañuelo, los 5 de piel, los 6 de camiseta y los 6 de pantalón se vean limpios en las 4 direcciones.
+4. **Definición extra:**
+   - contorno oscuro de 1 px alrededor de la silueta y sombra elíptica suave en el suelo, para que el personaje se lea bien sobre la hierba y la arena;
+   - opcionalmente, un ligero realce de bordes.
+5. **Vista previa de la creación:**
+   - usar el sprite a resolución completa a escala entera (×2 o ×3) y sin suavizado;
+   - que no corte la cabeza (margen superior);
+   - fondo neutro para apreciar los colores.
+6. **Aplicar lo mismo a los guerreros de la tribu** (también son el atlas recoloreado) y a cualquier otro personaje con sprites del atlas.
+7. **Si con 96 px no basta**, regenerar el atlas a más resolución desde las hojas originales con `tools/extract_sprites.py`: la hoja de andar tiene unos 160 px de alto, así que se puede subir la escala a 0,8 o 1,0. Habría que ajustar el tamaño de dibujo en consecuencia.
+
+**Terminado cuando:**
+
+- Se hacen capturas a **1920 × 1080** y a **1280 × 720** del personaje en la creación (dos combinaciones de colores distintas) y en el juego, sobre hierba y sobre arena. En ellas el personaje se ve **nítido y definido**: se distinguen la cara, el pañuelo, la camiseta, el cinturón y las botas, sin bloques gordos ni borrosidad ni manchas de color.
+- Las capturas se guardan en `tests/output/` y se comparan con la versión anterior.
+- El rendimiento sigue a 60 fps.
+- Las pruebas existentes siguen en verde.
+
 ### Sesión 7: Movilidad avanzada y persecución (Fase 4)
 
 - Escalada entre alturas con aguante según la Agilidad, ya en todo el monte.

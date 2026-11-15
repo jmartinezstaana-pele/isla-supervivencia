@@ -19,4 +19,4 @@ Este repositorio es el **juego de supervivencia en una isla** de Javier: aterriz
   - revisa una captura de pantalla.
 - Al final de cada sesión, informa con honestidad de qué funciona, qué está a medias y qué falta, y actualiza la documentación.
 - No pidas permiso para decisiones técnicas menores. Consulta a Javier solo las decisiones que cambien la visión del juego.
-- Los sprites del protagonista están en `assets/atlas.png` + `assets/atlas.json`: todos miran a la derecha, el ancla está en los pies y miden 96 px de alto, pensados para dibujarse a 0,5. Se regeneran con `tools/extract_sprites.py`.
+- Los sprites del protagonista están en `assets/atlas.png` + `assets/atlas.json`: todos miran a la derecha, el ancla está en los pies y miden 96 px de alto. **Desde la sesión 6 se dibujan a resolución completa, sin reducirlos a la mitad** (queja de Javier: personaje poco definido y pixelado; ver TRASPASO §4d, Sesión 6 — añadido). Se regeneran con `tools/extract_sprites.py`.
