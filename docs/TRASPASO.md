@@ -371,6 +371,8 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (sesión 2 de Claude Code): Fase 1b terminada.** El motor ya es cenital: movimiento en 8 direcciones con animaciones en 4 direcciones, colisión por los pies con corrección de esquinas, ordenación por profundidad, alturas con pared escalable (aguante), saliente, salto de grietas con sombra, agua poco profunda y profunda, y cámara en x e y. La física lateral se ha retirado. Detalle en `docs/CHANGELOG.md`.
+>
 > **Actualización 15/11/2026 (después de la sesión 1): cambio a vista cenital.** Javier ha probado la versión lateral y la rechaza: quiere moverse en todas las direcciones, como en Pokémon (§2.1). De la sesión 1:
 > - **Se conserva:** build a un HTML (`build.mjs`), `package.json`, Playwright, `src/core/*` (input, bucle, RNG, pantalla, assets, matemáticas), cámara (hay que adaptarla para que siga en x e y por igual), HUD, la pausa y el panel de depuración.
 > - **Hay que rehacer para la vista cenital:** `src/world/physics.js` (gravedad y plataformas de un sentido), `src/world/testLevel.js`, `src/entities/player.js` (salto con gravedad, agacharse y nado laterales), parte de `worldRenderer.js` y las pruebas de humo que comprueban el movimiento lateral.
@@ -463,7 +465,7 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 |---|---|---|
 | **0. Infraestructura** | Repositorio, `package.json`, `build.mjs` (esbuild + assets en base64 → un HTML), estructura `src/`, test de humo con Playwright, README | `npm run build` genera `dist/isla.html`. Abierto desde file:// en Chrome muestra una pantalla y no hay errores en consola. `npm test` pasa. |
 | **1. Motor y personaje** | ~~Versión lateral~~ (hecha en la sesión 1, descartada) | — |
-| **1b. Motor y personaje en cenital** | Rehacer mundo de prueba, colisiones y jugador para la vista cenital: movimiento en 8 direcciones, animaciones en 4 direcciones, colisión por los pies, ordenación por profundidad (y), alturas básicas con una pared escalable y un saliente para bajar, salto con sombra por encima de un hueco, agua poco profunda y profunda, cámara en x e y | Se anda y se corre en todas las direcciones con la animación correcta (incluidas diagonales). No se atraviesan paredes ni objetos, y el personaje pasa por delante y por detrás de un árbol según su posición. Se salta un hueco, se baja un saliente y se escala una pared básica. Las pruebas de humo están adaptadas y en verde. |
+| **1b. Motor y personaje en cenital** ✅ (sesión 2) | Rehacer mundo de prueba, colisiones y jugador para la vista cenital: movimiento en 8 direcciones, animaciones en 4 direcciones, colisión por los pies, ordenación por profundidad (y), alturas básicas con una pared escalable y un saliente para bajar, salto con sombra por encima de un hueco, agua poco profunda y profunda, cámara en x e y | Se anda y se corre en todas las direcciones con la animación correcta (incluidas diagonales). No se atraviesan paredes ni objetos, y el personaje pasa por delante y por detrás de un árbol según su posición. Se salta un hueco, se baja un saliente y se escala una pared básica. Las pruebas de humo están adaptadas y en verde. |
 | **2. Flujo de inicio** | Título (avion.jpg), creación (10 puntos, 4 atributos, colores con recoloreado y vista previa), intro breve, aterrizaje cenital con el resultado según la zona | Se puede hacer el recorrido completo de título → creación → aterrizaje → aparecer en el mundo, en la zona correspondiente. Los atributos afectan al salto y a la vida. |
 | **3. La isla** | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
 | **4. Movilidad avanzada** | Escalada entre alturas con aguante (Agilidad), lianas y escaleras, garfio a puntos de anclaje, saltos de huecos según la Agilidad, nado, daño por caída, suelo que se derrumba, ráfagas de viento, voltereta | Con Agilidad 0 se llega a la cumbre por la ruta de la cueva, y con Agilidad alta escalando. El garfio se engancha a sus anclajes. Bajar de mucha altura hace daño. Hay una persecución jugable por los acantilados. |
@@ -476,9 +478,9 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 
 ---
 
-## 4b. SIGUIENTE TAREA para Claude Code (sesión 2): conversión a vista cenital
+## 4b. Tarea de la sesión 2: conversión a vista cenital — HECHA
 
-> Esta sección manda sobre el apartado 5, que queda como historial de la sesión 1.
+> **Hecha en la sesión 2** (ver `docs/CHANGELOG.md`). La siguiente tarea es la **Fase 2** de §4 (flujo de inicio). Esta sección manda sobre el apartado 5, que queda como historial de la sesión 1.
 
 **Objetivo: Fase 1b.** Rehacer el movimiento y el mundo de prueba en **vista cenital**, al estilo Pokémon, reutilizando toda la infraestructura de la sesión 1. Sigue en pie todo lo demás: un único HTML que funciona con doble clic y pruebas con Playwright.
 

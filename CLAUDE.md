@@ -10,7 +10,7 @@ Este repositorio es el **juego de supervivencia en una isla** de Javier: aterriz
 - No mezcles este juego con el juego urbano en Godot de las instrucciones del proyecto de claude.ai: es otro proyecto.
 - Toda la interfaz y la documentación, en **español**.
 - Entregable: `dist/isla.html`, **un único archivo** que funciona abierto con doble clic (file://), sin instalar nada.
-- Trabaja **por fases** (§4 del traspaso). **La siguiente tarea está en §4b (conversión a vista cenital).** El juego es CENITAL, con movimiento en todas las direcciones, como en Pokémon: la vista lateral está descartada. Termina y prueba cada sistema antes de empezar otro.
+- Trabaja **por fases** (§4 del traspaso). **La Fase 1b (§4b, vista cenital) está hecha; la siguiente es la Fase 2 (flujo de inicio).** El juego es CENITAL, con movimiento en todas las direcciones, como en Pokémon: la vista lateral está descartada. Termina y prueba cada sistema antes de empezar otro.
 - Trabaja en una rama, no en la principal. Haz commits pequeños con mensajes claros.
 - Antes de dar una fase por terminada:
   - `npm run build` sin errores;

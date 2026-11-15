@@ -1,5 +1,44 @@
 # Historial de cambios
 
+## Sesión 2 — Fase 1b: conversión a vista cenital (15/11/2026)
+
+Javier pidió vista cenital con movimiento en todas las direcciones, como en Pokémon (TRASPASO §2.1). Se rehízo el motor de la Fase 1 manteniendo la infraestructura.
+
+### Hecho
+- **Tiles de 32 px** con tres capas: suelo (hierba, arena, tierra, agua poco profunda, agua profunda, grieta, pared de acantilado, saliente, hierba alta), objeto (árbol, roca, muro) y **altura** (nivel 0, 1, 2…).
+- **Mapa de prueba en texto** (`src/world/testLevel.js`, 60 × 40 tiles), fácil de editar a mano, con leyenda.
+- **Movimiento libre en 8 direcciones**, normalizado (no se va más rápido en diagonal), con aceleración y frenada. Mayús para correr; C para agacharse.
+- **Animaciones en 4 direcciones** (`walk_*`, `run_*`). En diagonal se mantiene la dirección actual si es una de las dos componentes y, si no, se usa la lateral. Reposo = primer fotograma de la dirección.
+- **Colisión por la caja de los pies** (18 × 10 px), por ejes, con deslizamiento contra las paredes y **corrección de esquinas** (hasta 8 px) para no engancharse.
+- **Ordenación por profundidad** (y de los pies): el jugador pasa por delante o por detrás de árboles, rocas y muros. Los árboles solo son sólidos en el tronco.
+- **Alturas:** entre niveles distintos no se puede pasar andando.
+  - **Pared de acantilado:** se escala empujando contra ella durante 0,15 s. Velocidad (70 + Agilidad × 10 px/s) y gasto de aguante (30 − Agilidad × 3,5 por segundo) según TRASPASO §1.5. Sprite `up` alternando el volteo. Se puede bajar escalando desde arriba. Si se agota el aguante, el personaje cae al pie de la pared.
+  - **Saliente:** se salta hacia abajo andando contra él (salto corto con arco). Desde abajo es una pared.
+  - Barra de **aguante** en el HUD; se recupera en el suelo.
+- **Salto** (Espacio) con arco, sombra que se encoge y sprite `jump` de lado. Distancia corriendo = 2,6 + Agilidad × 0,25 tiles (3,35 con Agilidad 3); andando, el 60 %. En el aire se cruzan las **grietas**; si se aterriza en una, el personaje cae y vuelve a donde saltó.
+- **Agua:** la poco profunda ralentiza (× 0,55) y tapa los pies; en la profunda se nada a 55 px/s, se ve medio cuerpo y no se puede saltar ni correr.
+- **Hierba alta:** briznas por delante de los pies; el juego ya sabe cuándo estás dentro (para el sigilo de la Fase 7).
+- **Cámara** con seguimiento suave en x e y, un poco adelantada hacia donde te mueves, y con límites del mapa.
+- **Pruebas de humo** reescritas: 12 pruebas (4 direcciones con teclado real, diagonales, correr, muro y esquina, profundidad con un árbol, grietas, saliente, escalada y falta de aguante, agua, cámara, agacharse e hierba alta).
+- **Física lateral retirada:** `src/world/physics.js` (gravedad y plataformas de un sentido) se ha borrado. Queda en el historial de Git, en el commit `ce4d2b1`.
+
+### Decisiones técnicas menores
+- **Tiles de 32 px** (lo que propone §4b): el personaje mide 1,5 tiles, proporción parecida a la de Pokémon.
+- **Movimiento libre** (no por casillas), como recomienda §2.1. Sigue pendiente confirmarlo con Javier (pregunta 3b).
+- **Sin sprites de saltar mirando arriba o abajo:** en esas direcciones se usa un fotograma de andar con el arco y la sombra. Agacharse siempre usa el sprite lateral.
+- **No se puede entrar andando en una grieta:** solo se cae en ella saltando mal, para que no haya caídas por descuido.
+- **Las caídas no hacen daño todavía**: aún no hay vida (Fase 2 y Fase 4).
+
+### Problemas conocidos
+- Los fotogramas de `jump`, `crouch` y `up` se ven algo más grandes que los de andar (escalas del atlas, TRASPASO §3.5).
+- La escalada no tiene animación propia: se alterna el volteo del sprite `up`.
+- Las mesetas se distinguen por un verde algo más claro, un borde de roca y sombra. El efecto de altura es sencillo; mejorará con el arte de tiles.
+- Las paredes de acantilado solo funcionan en el lado sur de una meseta (en vista cenital las caras norte, este y oeste son bordes que no se escalan). Por ahora los salientes solo miran al sur.
+- Solo se ha probado en Chromium.
+
+### Siguiente: Fase 2 (flujo de inicio)
+Título con `avion.jpg`, creación de personaje (10 puntos, colores con recoloreado y vista previa), intro breve y aterrizaje cenital con el resultado según la zona. Antes conviene que Javier responda las preguntas 3b (libre o por casillas) y 7 (color de pelo y pañuelo).
+
 ## Sesión 1 — Fases 0 y 1 (15/11/2026)
 
 ### Fase 0: infraestructura
