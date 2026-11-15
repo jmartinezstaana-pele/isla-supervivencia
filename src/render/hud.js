@@ -1,11 +1,12 @@
-// HUD provisional: título, controles y panel de depuración (F3).
+// HUD provisional: título, controles, aguante, mensajes y panel de depuración (F3).
 
-import { VIEW_W, VIEW_H, TILE, jumpHeightTiles } from '../config.js';
+import { VIEW_W, VIEW_H, TILE, PLAYER, jumpDistanceTiles } from '../config.js';
 
-const CONTROLES = 'A/D o ←/→ moverse · Mayús correr · Espacio/W saltar · S agacharse · ' +
-  'S + Espacio bajar de plataforma · Esc pausa · F3 depuración';
+const CONTROLES = 'WASD / flechas moverse · Mayús correr · Espacio saltar · C agacharse · ' +
+  'empuja contra una pared para escalar · Esc pausa · F3 depuración';
 
-const SUELO = { solid: 'sólido', platform: 'plataforma' };
+const TERRENO = { land: 'tierra', shallow: 'agua poco profunda', deep: 'agua profunda', tallgrass: 'hierba alta' };
+const MIRA = { up: 'arriba', down: 'abajo', left: 'izquierda', right: 'derecha' };
 
 function panel(ctx, x, y, w, h) {
   ctx.fillStyle = 'rgba(10, 20, 25, 0.6)';
@@ -13,13 +14,41 @@ function panel(ctx, x, y, w, h) {
 }
 
 export function drawHud(ctx, game) {
+  const p = game.player;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
 
-  panel(ctx, 12, 12, 330, 30);
+  panel(ctx, 12, 12, 360, 30);
   ctx.font = 'bold 16px system-ui, sans-serif';
   ctx.fillStyle = '#fff3d6';
-  ctx.fillText('Isla · mundo de prueba (Fase 1)', 24, 28);
+  ctx.fillText('Isla · mundo de prueba cenital (Fase 1b)', 24, 28);
+
+  // Aguante: solo se muestra si no está lleno.
+  if (p.stamina < PLAYER.staminaMax - 0.01 || p.state === 'climb') {
+    const w = 220;
+    panel(ctx, VIEW_W - w - 32, 12, w + 20, 30);
+    ctx.fillStyle = '#e8f0f0';
+    ctx.font = '13px system-ui, sans-serif';
+    ctx.fillText('Aguante', VIEW_W - w - 22, 28);
+    const bx = VIEW_W - w + 40;
+    const bw = w - 70;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(bx, 21, bw, 14);
+    const k = p.stamina / PLAYER.staminaMax;
+    ctx.fillStyle = k > 0.3 ? '#e2c044' : '#e0553c';
+    ctx.fillRect(bx, 21, bw * k, 14);
+  }
+
+  if (p.message) {
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    const w = ctx.measureText(p.message.text).width + 32;
+    panel(ctx, (VIEW_W - w) / 2, 70, w, 36);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.message.text, VIEW_W / 2, 88);
+    ctx.textAlign = 'left';
+  }
 
   ctx.font = '14px system-ui, sans-serif';
   const w = ctx.measureText(CONTROLES).width + 24;
@@ -37,14 +66,13 @@ function drawDebug(ctx, game) {
   const p = game.player;
   const lines = [
     `FPS: ${game.fps.toFixed(0)}`,
-    `Posición (tiles): ${(p.centerX / TILE).toFixed(1)}, ${(p.feetY / TILE).toFixed(1)}`,
+    `Pies (tiles): ${(p.x / TILE).toFixed(2)}, ${(p.y / TILE).toFixed(2)} · nivel ${p.level}`,
     `Velocidad: ${p.vx.toFixed(0)}, ${p.vy.toFixed(0)} px/s`,
-    `Estado: ${p.stateName}${p.running ? ' (Mayús)' : ''}`,
-    `Suelo: ${SUELO[p.groundType] || 'no'} · Agua: ${p.swimming ? 'sí' : 'no'}`,
-    `Animación: ${p.anim.name} [${p.anim.index}] · mira ${p.facing > 0 ? 'derecha' : 'izquierda'}`,
-    `Agilidad: ${p.agility} → salto ${jumpHeightTiles(p.agility).toFixed(2)} tiles`,
+    `Estado: ${p.stateName} · terreno: ${TERRENO[p.terrain]}`,
+    `Animación: ${p.anim.name} [${p.anim.index}] · mira ${MIRA[p.facing]}`,
+    `Aguante: ${p.stamina.toFixed(0)} · Agilidad ${p.agility} → salto ${jumpDistanceTiles(p.agility).toFixed(2)} tiles`,
   ];
-  panel(ctx, 12, 52, 360, lines.length * 20 + 12);
+  panel(ctx, 12, 52, 420, lines.length * 20 + 12);
   ctx.font = '13px ui-monospace, monospace';
   ctx.fillStyle = '#c8ffd0';
   lines.forEach((l, i) => ctx.fillText(l, 22, 68 + i * 20));

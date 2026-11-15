@@ -1,245 +1,448 @@
-// Jugador: controlador de plataformas (andar, correr, saltar, agacharse, bajar
-// de plataformas y nado básico) y selección de animación.
+// Jugador en vista cenital: movimiento libre en 8 direcciones, correr, agacharse,
+// saltar huecos (arco y sombra), bajar salientes, escalar paredes con aguante y
+// agua poco profunda / profunda. (x, y) son los pies; la colisión es una caja
+// pequeña en los pies.
 
-import { PLAYER as P, PHYSICS_STEP, TILE, DEFAULT_AGILITY, jumpHeightTiles } from '../config.js';
-import { approach, sign } from '../core/math.js';
-import { moveX, moveY, groundBelow, boxFree } from '../world/physics.js';
+import {
+  PLAYER as P, PHYSICS_STEP, TILE, SPRITE_SCALE, DEFAULT_AGILITY,
+  jumpDistanceTiles, climbSpeed, climbDrain,
+} from '../config.js';
+import { approach, clamp } from '../core/math.js';
+import { moveAxis, boxFree, nudgeFree } from '../world/collision.js';
+import { G } from '../world/tiles.js';
 import { Animator, drawFrame } from '../render/animation.js';
+
+const WALK_ANIM = { right: 'walk', left: 'walk_left', up: 'walk_up', down: 'walk_down' };
+const RUN_ANIM = { right: 'run', left: 'run_left', up: 'run_up', down: 'run_down' };
 
 export class Player {
   constructor(atlasFrames) {
-    this.w = P.width;
-    this.h = P.height;
     this.x = 0;
     this.y = 0;
     this.vx = 0;
     this.vy = 0;
-    this.facing = 1;
+    this.level = 0;            // altura lógica en la que está
+    this.facing = 'down';      // 'up' | 'down' | 'left' | 'right'
+    this.lastSide = 1;         // último lado (1 derecha, −1 izquierda) para sprites laterales
+    this.state = 'walk';       // 'walk' | 'jump' | 'hop' | 'climb' | 'fall' | 'stunned'
     this.agility = DEFAULT_AGILITY;
-
-    this.onGround = false;
-    this.groundType = null; // 'solid' | 'platform' | null
-    this.crouching = false;
+    this.stamina = P.staminaMax;
+    this.staminaDelay = 0;
     this.running = false;
-    this.swimming = false;
-    this.headUnderwater = false;
-
-    this.coyote = 0;
-    this.jumpBuffer = 0;
-    this.jumping = false;   // subiendo por un salto (para el salto de altura variable)
-    this.jumpTime = 0;      // tiempo desde el último salto
-    this.dropTimer = 0;     // bajando a través de una plataforma
-    this.landTimer = 0;     // animación de aterrizaje
-    this.lastLandSpeed = 0;
-
+    this.crouching = false;
+    this.terrain = 'land';     // 'land' | 'shallow' | 'deep' | 'tallgrass'
+    this.z = 0;                // altura visual (saltos)
+    this.timer = 0;
+    this.pushTimer = 0;
+    this.jump = null;
+    this.hop = null;
+    this.climb = null;
+    this.message = null;       // { text, time }
     this.anim = new Animator(atlasFrames);
-    this.anim.hold('walk', 0);
+    this.anim.hold('walk_down', 0);
+    this.flip = 1;
   }
 
-  get centerX() {
-    return this.x + this.w / 2;
+  /** Caja de colisión de los pies. */
+  get box() {
+    return { x: this.x - P.boxW / 2, y: this.y - P.boxH, w: P.boxW, h: P.boxH };
   }
 
-  get feetY() {
-    return this.y + this.h;
+  setBox(b) {
+    this.x = b.x + P.boxW / 2;
+    this.y = b.y + P.boxH;
   }
 
-  /** Coloca al jugador con los pies en (fx, fy) y sin velocidad. */
-  placeAt(fx, fy) {
-    this.x = fx - this.w / 2;
-    this.y = fy - this.h;
+  get swimming() {
+    return this.terrain === 'deep' && this.state === 'walk';
+  }
+
+  /** Coloca los pies en (fx, fy) en el nivel indicado, quieto y de pie. */
+  placeAt(fx, fy, level = this.level) {
+    this.x = fx;
+    this.y = fy;
+    this.level = level;
     this.vx = 0;
     this.vy = 0;
-    this.jumping = false;
-    this.dropTimer = 0;
+    this.z = 0;
+    this.state = 'walk';
+    this.jump = this.hop = this.climb = null;
   }
 
-  /** Velocidad inicial de salto para alcanzar la altura que da la Agilidad. */
-  get jumpVelocity() {
-    return Math.sqrt(2 * P.gravity * jumpHeightTiles(this.agility) * TILE);
+  say(text) {
+    this.message = { text, time: 2.5 };
   }
 
-  /** Cambia la altura de la caja manteniendo los pies. Devuelve false si no cabe. */
-  setHeight(h, map) {
-    if (h === this.h) return true;
-    const newY = this.y + this.h - h;
-    if (h > this.h && !boxFree(map, this.x, newY, this.w, h)) return false;
-    this.y = newY;
-    this.h = h;
-    return true;
+  /** Tipo de suelo bajo el centro de la caja. */
+  groundUnder(map) {
+    const [tx, ty] = map.tileOf(this.x, this.y - P.boxH / 2);
+    return map.groundAt(tx, ty);
   }
 
-  updateWater(map) {
-    const cx = this.centerX;
-    this.swimming = map.isWater(Math.floor(cx / TILE), Math.floor((this.y + this.h * 0.5) / TILE));
-    this.chestInWater = map.isWater(Math.floor(cx / TILE), Math.floor((this.y + this.h * 0.3) / TILE));
-    this.headUnderwater = map.isWater(Math.floor(cx / TILE), Math.floor((this.y + 4) / TILE));
+  updateTerrain(map) {
+    const g = this.groundUnder(map);
+    this.terrain = g === G.DEEP ? 'deep' : g === G.SHALLOW ? 'shallow' : g === G.TALL_GRASS ? 'tallgrass' : 'land';
   }
 
   update(dt, input, map) {
-    const ax = input.axisX();
-    const wantDown = input.isDown('down');
-    const jumpHeld = input.isDown('jump');
-    this.running = input.isDown('run');
+    this.updateTerrain(map);
+    if (this.message && (this.message.time -= dt) <= 0) this.message = null;
 
-    if (input.pressed('jump')) this.jumpBuffer = P.jumpBuffer;
-    else this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
-    this.jumpTime += dt;
-    this.landTimer = Math.max(0, this.landTimer - dt);
-
-    this.updateWater(map);
-
-    // --- Agacharse (solo en el suelo y fuera del agua). Para levantarse hace falta sitio.
-    if (wantDown && this.onGround && !this.swimming) {
-      this.crouching = this.setHeight(P.crouchHeight, map) || this.crouching;
-    } else if (this.crouching && this.setHeight(P.height, map)) {
-      this.crouching = false;
+    switch (this.state) {
+      case 'walk': this.updateWalk(dt, input, map); break;
+      case 'jump': this.updateJump(dt, map); break;
+      case 'hop': this.updateHop(dt); break;
+      case 'climb': this.updateClimb(dt, input, map); break;
+      case 'fall': this.updateFall(dt); break;
+      case 'stunned':
+        if ((this.timer -= dt) <= 0) this.state = 'walk';
+        break;
     }
 
-    // --- Bajar de una plataforma de un sentido: S + Espacio encima de ella.
-    if (wantDown && this.jumpBuffer > 0 && this.onGround && this.groundType === 'platform') {
-      this.dropTimer = P.dropThroughTime;
-      this.jumpBuffer = 0;
-      this.onGround = false;
-      this.coyote = 0;
-    }
-
-    // --- Movimiento horizontal.
-    let maxSpeed = this.crouching ? P.crouchSpeed : this.running ? P.runSpeed : P.walkSpeed;
-    let accel;
-    if (this.swimming) {
-      maxSpeed = P.water.maxSpeed;
-      accel = 600;
-    } else if (this.onGround) {
-      const turning = ax !== 0 && this.vx !== 0 && sign(ax) !== sign(this.vx);
-      accel = ax === 0 || turning ? P.groundDecel : P.groundAccel;
+    if (this.state === 'climb') {
+      this.staminaDelay = 0.6;
+    } else if (this.staminaDelay > 0) {
+      this.staminaDelay -= dt;
     } else {
-      accel = P.airAccel;
-    }
-    const target = ax * maxSpeed;
-    // En el aire se conserva el impulso de la carrera aunque se suelte Mayús.
-    const keepMomentum = !this.onGround && !this.swimming && ax !== 0 &&
-      sign(ax) === sign(this.vx) && Math.abs(this.vx) > maxSpeed;
-    if (!keepMomentum) this.vx = approach(this.vx, target, accel * dt);
-    if (ax !== 0) this.facing = ax;
-
-    // --- Salto (con margen tras salir de un borde y pulsación recordada).
-    this.coyote = this.onGround ? P.coyoteTime : Math.max(0, this.coyote - dt);
-    if (this.jumpBuffer > 0 && this.coyote > 0 && !this.swimming && this.dropTimer <= 0) {
-      if (!this.crouching || this.setHeight(P.height, map)) {
-        this.crouching = false;
-        this.startJump(this.jumpVelocity);
-      }
-    }
-    // Salir del agua de un impulso cuando la cabeza asoma.
-    if (this.swimming && !this.headUnderwater && this.jumpBuffer > 0) {
-      this.startJump(this.jumpVelocity);
+      this.stamina = Math.min(P.staminaMax, this.stamina + P.staminaRegen * dt);
     }
 
-    // --- Integración con subpasos (ningún subpaso mueve más de medio tile).
+    this.updateTerrain(map);
+    this.selectAnimation(dt, input);
+  }
+
+  // ---------------------------------------------------------------- andar
+  updateWalk(dt, input, map) {
+    const ax = input.axisX();
+    const ay = input.axisY();
+    const len = Math.hypot(ax, ay);
+    const dx = len ? ax / len : 0;
+    const dy = len ? ay / len : 0;
+    const deep = this.terrain === 'deep';
+
+    this.crouching = input.isDown('crouch') && !deep;
+    this.running = input.isDown('run') && !this.crouching && !deep && len > 0;
+    let speed = this.crouching ? P.crouchSpeed : this.running ? P.runSpeed : P.walkSpeed;
+    if (this.terrain === 'shallow') speed *= P.shallowFactor;
+    if (deep) speed = P.swimSpeed;
+
+    const rate = (len ? P.accel : P.decel) * dt;
+    this.vx = approach(this.vx, dx * speed, rate);
+    this.vy = approach(this.vy, dy * speed, rate);
+    if (len) this.updateFacing(ax, ay);
+
+    this.moveSubsteps(dt, map, false, ay === 0, ax === 0, speed);
+
+    // ¿Empujando contra una pared escalable o un saliente?
+    const action = this.edgeAction(map, ay);
+    if (action === 'hop') {
+      this.startHop(map);
+    } else if (action === 'climbUp' || action === 'climbDown') {
+      this.pushTimer += dt;
+      if (this.pushTimer >= P.climbPushTime) this.startClimb(map, action === 'climbUp' ? 'up' : 'down');
+    } else {
+      this.pushTimer = 0;
+    }
+
+    if (this.state === 'walk' && input.pressed('jump') && !deep && !this.crouching) {
+      this.startJump(dx, dy);
+    }
+  }
+
+  /** En diagonal se mantiene la dirección actual si es una de las dos componentes. */
+  updateFacing(ax, ay) {
+    const h = ax > 0 ? 'right' : ax < 0 ? 'left' : null;
+    const v = ay > 0 ? 'down' : ay < 0 ? 'up' : null;
+    if (h && v) {
+      if (this.facing !== h && this.facing !== v) this.facing = h;
+    } else {
+      this.facing = h || v;
+    }
+    if (ax) this.lastSide = ax > 0 ? 1 : -1;
+  }
+
+  moveSubsteps(dt, map, airborne, slideX, slideY, speed) {
     const steps = Math.max(1, Math.ceil(dt / PHYSICS_STEP - 1e-9));
     const h = dt / steps;
+    const box = this.box;
     for (let i = 0; i < steps; i++) {
-      this.integrate(h, map, jumpHeld, wantDown);
+      const slideStep = speed * h;
+      if (moveAxis(map, box, 'x', this.vx * h, this.level, airborne, slideX ? P.cornerSlide : 0, slideStep).length) this.vx = 0;
+      if (moveAxis(map, box, 'y', this.vy * h, this.level, airborne, slideY ? P.cornerSlide : 0, slideStep).length) this.vy = 0;
     }
-
-    // Si cae fuera del mundo (no debería ocurrir en el mapa de prueba), reaparece.
-    if (this.y > map.pixelHeight + 200) {
-      this.placeAt(map.spawn.x, map.spawn.y);
-    }
-
-    this.updateWater(map);
-    this.selectAnimation(dt, ax);
+    this.setBox(box);
   }
 
-  startJump(v) {
-    this.vy = -v;
-    this.onGround = false;
-    this.coyote = 0;
-    this.jumpBuffer = 0;
-    this.jumping = true;
-    this.jumpTime = 0;
+  /** Mira qué hay justo delante de la caja en vertical: pared para escalar o saliente. */
+  edgeAction(map, ay) {
+    if (ay === 0) return null;
+    const b = this.box;
+    const probeY = ay < 0 ? b.y - 1 : b.y + b.h + 1;
+    const ty = Math.floor(probeY / TILE);
+    const tx = Math.floor(this.x / TILE);
+    const g = map.groundAt(tx, ty);
+    const i = map.inBounds(tx, ty) ? map.idx(tx, ty) : -1;
+    if (i < 0) return null;
+    // La caja tiene que tener libre ese lado salvo por el propio acantilado.
+    if (ay < 0 && g === G.CLIFF && map.cliffBase[i] === this.level) return 'climbUp';
+    if (ay > 0 && g === G.CLIFF && map.cliffTop[i] === this.level) return 'climbDown';
+    if (ay > 0 && g === G.LEDGE_S && map.cliffTop[i] === this.level) {
+      const txl = Math.floor((b.x + 0.5) / TILE);
+      const txr = Math.floor((b.x + b.w - 0.5) / TILE);
+      if (map.groundAt(txl, ty) === G.LEDGE_S && map.groundAt(txr, ty) === G.LEDGE_S) return 'hop';
+    }
+    return null;
   }
 
-  integrate(h, map, jumpHeld, wantDown) {
-    this.updateWater(map);
-    if (this.swimming && !(this.jumping && this.vy < 0)) {
-      const W = P.water;
-      this.vy += W.gravity * h;
-      if (wantDown) this.vy = approach(this.vy, W.swimDown, 900 * h);
-      else if (this.chestInWater) this.vy -= W.buoyancy * h;
-      if (jumpHeld && !wantDown) this.vy = approach(this.vy, -W.swimUp, 900 * h);
-      this.vy *= Math.exp(-W.drag * h);
-      this.vy = Math.min(this.vy, W.maxSink);
-    } else {
-      let g = P.gravity;
-      if (this.jumping && this.vy < 0 && !jumpHeld) g *= P.jumpCutGravity;
-      this.vy = Math.min(this.vy + g * h, P.maxFall);
+  // ---------------------------------------------------------------- saltar
+  startJump(dx, dy) {
+    const dist = jumpDistanceTiles(this.agility) * TILE * (this.running ? 1 : P.walkJumpFactor);
+    const v = dist / P.jumpTime;
+    this.jump = { t: 0, vx: dx * v, vy: dy * v, startX: this.x, startY: this.y, startLevel: this.level };
+    this.vx = this.jump.vx;
+    this.vy = this.jump.vy;
+    this.state = 'jump';
+  }
+
+  updateJump(dt, map) {
+    const j = this.jump;
+    j.t = Math.min(P.jumpTime, j.t + dt);
+    const k = j.t / P.jumpTime;
+    this.z = 4 * P.jumpArc * k * (1 - k);
+    this.moveSubsteps(dt, map, true, false, false, 0);
+    if (j.t < P.jumpTime) return;
+
+    this.z = 0;
+    if (this.groundUnder(map) === G.CHASM) {
+      this.state = 'fall';
+      this.timer = 0.6;
+      return;
     }
-    if (this.vy >= 0) this.jumping = false;
+    // Si ha caído con la caja medio encima de una grieta, se empuja a tierra firme.
+    const box = this.box;
+    nudgeFree(map, box, this.level, P.boxW);
+    this.setBox(box);
+    this.state = 'walk';
+    this.jump = null;
+  }
 
-    if (moveX(this, map, this.vx * h) !== 0) this.vx = 0;
+  updateFall(dt) {
+    this.timer -= dt;
+    if (this.timer > 0) return;
+    const j = this.jump;
+    this.placeAt(j.startX, j.startY, j.startLevel);
+    this.say('¡Te has caído por la grieta!');
+  }
 
-    const ignorePlatforms = this.dropTimer > 0;
-    const fallSpeed = this.vy;
-    const hitY = moveY(this, map, this.vy * h, ignorePlatforms);
-    if (hitY === 1) {
-      if (!this.onGround && fallSpeed > 380) {
-        this.landTimer = 0.12;
-        this.lastLandSpeed = fallSpeed;
+  // ---------------------------------------------------------------- saliente
+  startHop(map) {
+    const ty = Math.floor((this.y + 1) / TILE);
+    const tx = Math.floor(this.x / TILE);
+    const toLevel = map.cliffBase[map.idx(tx, ty)];
+    const toY = (ty + 1) * TILE + P.boxH + 2;
+    const target = { ...this.box, y: toY - P.boxH };
+    if (!boxFree(map, target, toLevel)) return;
+    this.hop = { t: 0, fromY: this.y, toY, toLevel };
+    this.state = 'hop';
+    this.facing = 'down';
+    this.vx = this.vy = 0;
+  }
+
+  updateHop(dt) {
+    const h = this.hop;
+    h.t = Math.min(P.hopTime, h.t + dt);
+    const k = h.t / P.hopTime;
+    this.y = h.fromY + (h.toY - h.fromY) * k;
+    this.z = 4 * P.hopArc * k * (1 - k);
+    if (k >= 1) {
+      this.level = h.toLevel;
+      this.z = 0;
+      this.state = 'walk';
+      this.hop = null;
+    }
+  }
+
+  // ---------------------------------------------------------------- escalar
+  startClimb(map, dir) {
+    const tx = Math.floor(this.x / TILE);
+    const b = this.box;
+    const row = Math.floor((dir === 'up' ? b.y - 1 : b.y + b.h + 1) / TILE);
+    const i = map.idx(tx, row);
+    let l = tx;
+    let r = tx;
+    while (map.isCliff(l - 1, row)) l--;
+    while (map.isCliff(r + 1, row)) r++;
+    this.climb = {
+      topRow: map.cliffColumnTop(tx, row),
+      bottomRow: map.cliffColumnBottom(tx, row),
+      top: map.cliffTop[i],
+      base: map.cliffBase[i],
+      minX: l * TILE + P.boxW / 2,
+      maxX: (r + 1) * TILE - P.boxW / 2,
+      t: 0,
+    };
+    this.x = clamp(this.x, this.climb.minX, this.climb.maxX);
+    if (dir === 'down') this.y += 2;
+    this.state = 'climb';
+    this.vx = this.vy = 0;
+    this.pushTimer = 0;
+    this.crouching = this.running = false;
+  }
+
+  updateClimb(dt, input, map) {
+    const c = this.climb;
+    const ax = input.axisX();
+    const ay = input.axisY();
+    const speed = climbSpeed(this.agility);
+    const moving = ax !== 0 || ay !== 0;
+    this.y += ay * speed * dt;
+    this.x = clamp(this.x + ax * speed * 0.5 * dt, c.minX, c.maxX);
+    this.vy = ay * speed;
+    c.t += moving ? dt : 0;
+    this.stamina = Math.max(0, this.stamina - climbDrain(this.agility) * (moving ? 1 : 0.4) * dt);
+
+    const topY = c.topRow * TILE - 1;               // pies dentro del tile de arriba
+    const bottomY = (c.bottomRow + 1) * TILE + P.boxH + 1; // caja entera debajo de la pared
+    if (this.y <= topY) {
+      const box = { x: this.x - P.boxW / 2, y: topY - P.boxH, w: P.boxW, h: P.boxH };
+      if (boxFree(map, box, c.top)) {
+        this.placeAt(this.x, topY, c.top);
+        this.facing = 'up';
+        return;
       }
-      this.vy = 0;
-    } else if (hitY === -1) {
-      this.vy = 0;
-      this.jumping = false;
+      this.y = topY + 1; // algo bloquea arriba: se queda colgado
+    } else if (this.y >= bottomY) {
+      this.placeAt(this.x, bottomY, c.base);
+      this.facing = 'down';
+      return;
     }
-
-    const ground = this.vy >= 0 ? groundBelow(this, map, ignorePlatforms) : null;
-    this.onGround = ground !== null;
-    this.groundType = ground;
-    if (this.onGround) this.jumping = false;
-    this.dropTimer = Math.max(0, this.dropTimer - h);
+    if (this.stamina <= 0) {
+      this.placeAt(this.x, bottomY, c.base);
+      this.state = 'stunned';
+      this.timer = 0.6;
+      this.facing = 'down';
+      this.say('¡Sin aguante! Te has caído de la pared.');
+    }
   }
 
-  selectAnimation(dt, ax) {
+  // ---------------------------------------------------------------- animación
+  selectAnimation(dt, input) {
     const a = this.anim;
-    const speed = Math.abs(this.vx);
-    if (this.swimming) {
-      // Sustituto hasta tener animación de nado (Fase 4).
-      a.play('walk', 5, dt);
-    } else if (!this.onGround) {
-      if (this.jumping && this.jumpTime < 0.08) a.hold('jump', 0);
-      else if (this.vy < -120) a.hold('jump', 1);
-      else if (this.vy < 160) a.hold('jump', 2);
-      else a.hold('jump', 3);
-    } else if (this.landTimer > 0 && ax === 0) {
-      a.hold('jump', this.landTimer > 0.06 ? 4 : 5);
-    } else if (this.crouching) {
+    this.flip = 1;
+    const side = this.facing === 'left' || this.facing === 'right';
+    if (side) this.lastSide = this.facing === 'right' ? 1 : -1;
+
+    switch (this.state) {
+      case 'climb': {
+        a.hold('up', 0);
+        // Sin animación de escalar: se alterna el volteo del sprite al moverse.
+        this.flip = Math.floor(this.climb.t * 6) % 2 ? -1 : 1;
+        return;
+      }
+      case 'jump':
+      case 'hop': {
+        const k = this.state === 'jump' ? this.jump.t / P.jumpTime : this.hop.t / P.hopTime;
+        if (side) {
+          a.hold('jump', k < 0.15 ? 1 : k < 0.55 ? 2 : k < 0.9 ? 3 : 4);
+          this.flip = this.lastSide;
+        } else {
+          a.hold(WALK_ANIM[this.facing], 1); // no hay salto mirando arriba/abajo
+        }
+        return;
+      }
+      case 'fall':
+      case 'stunned':
+        a.hold('hurt', 0);
+        this.flip = this.lastSide;
+        return;
+    }
+
+    const speed = Math.hypot(this.vx, this.vy);
+    if (this.crouching) {
       if (speed > 5) a.play('crouch', 8, dt);
       else a.hold('crouch', 0);
+      this.flip = this.lastSide; // agacharse solo existe de lado
+    } else if (this.swimming) {
+      if (speed > 5) a.play(WALK_ANIM[this.facing], 5, dt);
+      else a.hold(WALK_ANIM[this.facing], 0);
     } else if (speed > P.walkSpeed + 10) {
-      a.play('run', 14 * (speed / P.runSpeed), dt);
+      a.play(RUN_ANIM[this.facing], 13 * (speed / P.runSpeed), dt);
     } else if (speed > 8) {
-      a.play('walk', Math.max(4, 10 * (speed / P.walkSpeed)), dt);
+      a.play(WALK_ANIM[this.facing], Math.max(4, 9 * (speed / P.walkSpeed)), dt);
     } else {
-      // Reposo: primer fotograma de "walk". El fotograma "idle" del atlas está de
-      // frente y con otro estilo (TRASPASO §3.5), así que de momento no se usa.
-      a.hold('walk', 0);
+      a.hold(WALK_ANIM[this.facing], 0);
     }
   }
 
-  /** Nombre legible del estado actual (HUD de depuración y pruebas). */
+  /** Nombre legible del estado (HUD de depuración y pruebas). */
   get stateName() {
+    switch (this.state) {
+      case 'jump': return 'saltando';
+      case 'hop': return 'bajando saliente';
+      case 'climb': return 'escalando';
+      case 'fall': return 'cayendo';
+      case 'stunned': return 'aturdido';
+    }
     if (this.swimming) return 'nadando';
-    if (!this.onGround) return this.vy < 0 ? 'saltando' : 'cayendo';
+    const speed = Math.hypot(this.vx, this.vy);
     if (this.crouching) return 'agachado';
-    const speed = Math.abs(this.vx);
     if (speed > P.walkSpeed + 10) return 'corriendo';
     if (speed > 8) return 'andando';
     return 'quieto';
   }
 
-  draw(ctx, atlas) {
-    drawFrame(ctx, atlas, this.anim.frame, this.centerX, this.feetY, this.facing);
+  /** Clave de ordenación por profundidad: la y de los pies. */
+  get sortY() {
+    return this.y;
+  }
+
+  draw(ctx, atlas, time) {
+    const { x, y } = this;
+    let scale = SPRITE_SCALE;
+    if (this.state === 'fall') scale *= Math.max(0.15, this.timer / 0.6);
+
+    // Sombra (se encoge al saltar).
+    if (this.state !== 'climb' && this.terrain !== 'deep') {
+      const s = 1 - this.z / 60;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 3, 10 * s, 4 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const inWater = this.state === 'walk' && (this.terrain === 'deep' || this.terrain === 'shallow');
+    const sink = !inWater ? 0 : this.terrain === 'deep' ? 18 : 4;
+    const waterLine = y - (this.terrain === 'deep' ? 2 : 3);
+    if (inWater) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 60, y - 120, 120, waterLine - (y - 120));
+      ctx.clip();
+    }
+    drawFrame(ctx, atlas, this.anim.frame, x, y - this.z + sink, this.flip, scale);
+    if (inWater) {
+      ctx.restore();
+      const r = 12 + Math.sin(time * 4) * 1.5;
+      ctx.strokeStyle = 'rgba(220, 245, 255, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x, waterLine, r, r * 0.35, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (this.state === 'walk' && this.terrain === 'tallgrass') drawGrassOverlay(ctx, x, y, time);
+  }
+}
+
+/** Briznas de hierba alta por delante de los pies. */
+function drawGrassOverlay(ctx, x, y, time) {
+  ctx.strokeStyle = '#2f6b27';
+  ctx.lineWidth = 2;
+  for (let i = -3; i <= 3; i++) {
+    const bx = x + i * 4;
+    const sway = Math.sin(time * 3 + i) * 2;
+    ctx.beginPath();
+    ctx.moveTo(bx, y + 1);
+    ctx.lineTo(bx + sway, y - 13 + Math.abs(i));
+    ctx.stroke();
   }
 }

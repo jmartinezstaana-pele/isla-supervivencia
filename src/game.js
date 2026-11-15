@@ -1,4 +1,4 @@
-// Estado del juego en la Fase 1: mundo de prueba, jugador y cámara.
+// Estado del juego en la Fase 1b: mapa de prueba cenital, jugador y cámara.
 // En la Fase 2 esto pasará a ser un estado más (juego) dentro de una máquina de
 // pantallas: título → creación → intro → aterrizaje → juego → muerte / final.
 
@@ -15,13 +15,14 @@ export class Game {
     this.atlas = atlas;
     this.map = buildTestLevel();
     this.player = new Player(atlasFrames);
-    this.player.placeAt(this.map.spawn.x, this.map.spawn.y);
+    this.player.placeAt(this.map.spawn.x, this.map.spawn.y, 0);
     this.camera = new Camera(this.map.pixelWidth, this.map.pixelHeight);
     this.camera.snap(this.player);
     this.worldRenderer = new WorldRenderer(this.map);
     this.debug = false;
     this.paused = false;
     this.fps = 60;
+    this.drawOrder = []; // último orden de dibujo (para pruebas y depuración)
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.paused = true;
@@ -42,20 +43,35 @@ export class Game {
   }
 
   render() {
-    const { ctx, camera, worldRenderer, player } = this;
+    const { ctx, camera, worldRenderer: wr, player } = this;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#2b6cad';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    worldRenderer.drawBackground(ctx, camera);
     camera.apply(ctx);
-    worldRenderer.drawTiles(ctx, camera);
-    worldRenderer.drawLabels(ctx);
-    player.draw(ctx, this.atlas);
-    worldRenderer.drawWater(ctx, camera);
-    if (this.debug) {
-      ctx.strokeStyle = '#ff3b3b';
-      ctx.lineWidth = 1 / camera.zoom;
-      ctx.strokeRect(player.x, player.y, player.w, player.h);
-    }
+    wr.drawGround(ctx, camera);
+
+    // Objetos y jugador ordenados por la y de su base: así el jugador pasa por
+    // delante o por detrás de árboles y muros según su posición.
+    const items = [];
+    wr.collectObjects(camera, items);
+    items.push({ kind: 'jugador', sortY: player.sortY, draw: (c) => player.draw(c, this.atlas, wr.time) });
+    items.sort((a, b) => a.sortY - b.sortY);
+    for (const it of items) it.draw(ctx);
+    this.drawOrder = items.map((it) => (it.kind === 'jugador' ? 'jugador' : `${it.kind}@${it.tx},${it.ty}`));
+
+    wr.drawLabels(ctx);
+    if (this.debug) this.drawDebugBoxes(ctx);
     drawHud(ctx, this);
+  }
+
+  drawDebugBoxes(ctx) {
+    const b = this.player.box;
+    ctx.strokeStyle = '#ff3b3b';
+    ctx.lineWidth = 1 / this.camera.zoom;
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#ff3b3b';
+    ctx.fillRect(this.player.x - 1, this.player.y - 1, 2, 2);
   }
 }

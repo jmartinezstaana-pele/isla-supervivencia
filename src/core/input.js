@@ -7,8 +7,10 @@
 export const BINDINGS = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
-  jump: ['Space', 'KeyW', 'ArrowUp'],
+  up: ['KeyW', 'ArrowUp'],
   down: ['KeyS', 'ArrowDown'],
+  jump: ['Space'],
+  crouch: ['KeyC'],
   run: ['ShiftLeft', 'ShiftRight'],
   pause: ['Escape'],
   debug: ['F3'],
@@ -75,6 +77,10 @@ export class Input {
   /** −1, 0 o 1 según las teclas de dirección. */
   axisX() {
     return (this.isDown('right') ? 1 : 0) - (this.isDown('left') ? 1 : 0);
+  }
+
+  axisY() {
+    return (this.isDown('down') ? 1 : 0) - (this.isDown('up') ? 1 : 0);
   }
 
   /** Llamar al final de cada fotograma. */

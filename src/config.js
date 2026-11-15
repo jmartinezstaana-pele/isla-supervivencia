@@ -5,15 +5,15 @@
 export const VIEW_W = 1280;
 export const VIEW_H = 720;
 
-/** Lado de un tile en píxeles de mundo. */
-export const TILE = 20;
+/** Lado de un tile en píxeles de mundo (vista cenital). */
+export const TILE = 32;
 
 /** Paso máximo de tiempo por fotograma (evita saltos enormes tras un parón). */
 export const MAX_DT = 1 / 30;
-/** Paso máximo de cada subpaso de física (≤ 7,5 px por subpaso a velocidad máxima). */
+/** Paso máximo de cada subpaso de movimiento (a 1/120 s nadie avanza más de 2 px). */
 export const PHYSICS_STEP = 1 / 120;
 
-/** Zoom de la cámara: 1 = 64 × 36 tiles visibles. */
+/** Zoom de la cámara: con 1,5 se ven unos 27 × 15 tiles. */
 export const CAMERA_ZOOM = 1.5;
 
 /** Escala a la que se dibujan los sprites del atlas (96 px → 48 px). */
@@ -26,34 +26,37 @@ export const SPRITE_SCALE = 0.5;
 export const DEFAULT_AGILITY = 3;
 
 export const PLAYER = {
-  width: 16,
-  height: 44,          // de pie
-  crouchHeight: 28,    // agachado
-  walkSpeed: 120,      // px/s
-  runSpeed: 230,
-  crouchSpeed: 60,
-  groundAccel: 1500,   // px/s²
-  groundDecel: 2000,
-  airAccel: 1000,
-  gravity: 1800,
-  jumpCutGravity: 2.4, // multiplicador de gravedad al soltar el salto mientras sube
-  maxFall: 900,        // velocidad terminal (px/s)
-  coyoteTime: 0.1,     // s de margen para saltar tras salir de un borde
-  jumpBuffer: 0.12,    // s que se recuerda una pulsación de salto antes de tocar suelo
-  dropThroughTime: 0.25,
-  // Agua (versión básica; el nado completo llega en la Fase 4)
-  water: {
-    gravity: 380,
-    buoyancy: 900,     // empuje hacia arriba cuando el pecho está sumergido
-    drag: 3.5,
-    maxSpeed: 70,
-    swimUp: 170,
-    swimDown: 130,
-    maxSink: 150,
-  },
+  boxW: 18,            // caja de colisión de los pies
+  boxH: 10,
+  walkSpeed: 110,      // px/s
+  runSpeed: 190,
+  crouchSpeed: 55,
+  shallowFactor: 0.55, // agua poco profunda
+  swimSpeed: 55,       // agua profunda
+  accel: 1400,         // px/s²
+  decel: 1800,
+  cornerSlide: 8,      // px máximos de corrección en esquinas
+  jumpTime: 0.55,      // s en el aire
+  jumpArc: 22,         // altura visual del salto (px)
+  walkJumpFactor: 0.6, // fracción de la distancia de salto si no se corre
+  hopTime: 0.32,       // salto por un saliente
+  hopArc: 16,
+  climbPushTime: 0.15, // s empujando contra la pared antes de empezar a escalar
+  staminaMax: 100,
+  staminaRegen: 30,    // por segundo, en el suelo
 };
 
-/** Altura de salto en tiles según la Agilidad (TRASPASO §1.5). */
-export function jumpHeightTiles(agility) {
+/** Distancia de salto corriendo, en tiles, según la Agilidad (TRASPASO §1.5). */
+export function jumpDistanceTiles(agility) {
   return 2.6 + agility * 0.25;
+}
+
+/** Velocidad de escalada en px/s (TRASPASO §1.5). */
+export function climbSpeed(agility) {
+  return 70 + agility * 10;
+}
+
+/** Gasto de aguante por segundo al escalar (TRASPASO §1.5). */
+export function climbDrain(agility) {
+  return 30 - agility * 3.5;
 }

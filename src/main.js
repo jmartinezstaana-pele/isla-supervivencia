@@ -43,19 +43,26 @@ async function boot() {
     step(dt, frames = 1) {
       for (let i = 0; i < frames; i++) game.update(dt);
     },
-    /** Coloca los pies del jugador en el centro del tile (tx, ty). */
+    /** Coloca los pies del jugador en el centro del tile (tx, ty), en el nivel de ese tile. */
     teleport(tx, ty) {
-      game.player.placeAt(tx * TILE + TILE / 2, ty * TILE);
+      const m = game.map;
+      game.player.placeAt((tx + 0.5) * TILE, (ty + 0.5) * TILE, m.levelAt(tx, ty));
       game.camera.snap(game.player);
     },
     player() {
       const p = game.player;
       return {
-        x: p.x, y: p.y, w: p.w, h: p.h, vx: p.vx, vy: p.vy,
-        feetY: p.feetY, centerX: p.centerX, facing: p.facing,
-        onGround: p.onGround, groundType: p.groundType, crouching: p.crouching,
-        swimming: p.swimming, state: p.stateName, anim: p.anim.name, frame: p.anim.index,
+        x: p.x, y: p.y, vx: p.vx, vy: p.vy, z: p.z, level: p.level,
+        tx: Math.floor(p.x / TILE), ty: Math.floor((p.y - 5) / TILE),
+        facing: p.facing, state: p.state, stateName: p.stateName, terrain: p.terrain,
+        stamina: p.stamina, crouching: p.crouching, running: p.running,
+        anim: p.anim.name, frame: p.anim.index, message: p.message && p.message.text,
       };
+    },
+    /** Orden de dibujo del último fotograma ("jugador", "árbol@x,y", …). */
+    drawOrder() {
+      game.render();
+      return game.drawOrder;
     },
   };
 }
