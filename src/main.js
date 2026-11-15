@@ -16,6 +16,8 @@ import { scaleAtlas, tribalAtlas, boarFrames, crabFrames } from './gfx/character
 import { flameFrames } from './gfx/props.js';
 import { buildIcons } from './gfx/icons.js';
 import { drawLoading } from './render/hud.js';
+import { landingZoneAt } from './world/landingMap.js';
+import { useItem } from './systems/interaction.js';
 
 function showError(err) {
   console.error(err);
@@ -64,7 +66,7 @@ async function boot() {
     landing() {
       const l = game.landing;
       const z = l.zone;
-      return { x: l.x, y: l.y, alt: l.alt, angle: l.angle, phase: l.phase, zone: z.zone, explored: z.explored, msg: l.msg && l.msg.text };
+      return { x: l.x, y: l.y, alt: l.alt, angle: l.angle, phase: l.phase, zone: z.zone, result: z.result, explored: z.explored, msg: l.msg && l.msg.text };
     },
     /** Pone el avión en (x, y) con un rumbo, sin aterrizar. */
     placePlane(x, y, angle = 0) { Object.assign(game.landing, { x, y, angle }); },
@@ -94,7 +96,11 @@ async function boot() {
         needs: { ...p.needs }, anim: p.anim.name, frame: p.anim.index, message: p.message && p.message.text,
       };
     },
+    /** Usa un objeto de la mochila (como hacer clic en él). */
+    use(id) { return useItem(game, id); },
     zone() { return game.zone; },
+    /** Zona del mapa del aterrizaje en el tile (x, y), para comparar con la del juego. */
+    landingZoneAt(x, y) { return landingZoneAt(game.map, x, y); },
     discovered() { return [...game.discovered]; },
     terrainStats() { const t = game.terrain; return { chunks: t.chunks.size, rendered: t.rendered, avgMs: t.renderMs / Math.max(1, t.rendered), maxMs: t.maxRenderMs }; },
     inventory() { return game.inventory.slots.map((s) => ({ ...s })); },

@@ -390,7 +390,7 @@ function zoneCenters(map) {
   const out = {};
   for (const [id, a] of Object.entries(acc)) out[id] = { x: a.x / a.n + 0.5, y: a.y / a.n + 0.5, n: a.n };
   // Retoques para que las etiquetas caigan en sitios reconocibles.
-  out.costa = { x: 186, y: 128, n: out.costa ? out.costa.n : 0 };
+  out.costa = { x: 13, y: 48, n: out.costa ? out.costa.n : 0 };
   out.cumbre = { x: WORLD_PLACES.cumbre[0], y: WORLD_PLACES.cumbre[1], n: out.cumbre ? out.cumbre.n : 0 };
   if (out.monte) out.monte = { x: 72, y: 84, n: out.monte.n };
   return out;

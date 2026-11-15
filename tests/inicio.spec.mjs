@@ -8,9 +8,10 @@ import { resolve } from 'node:path';
 
 const URL = pathToFileURL(resolve('dist/isla.html')).href;
 const TILE = 32;
-// Esquina del trozo explorado en el mapa del aterrizaje (src/world/landingMap.js).
-const OX = 12;
-const OY = 100;
+// El trozo de la sesión 3 está en (4, 116) de la isla completa; el mapa del
+// aterrizaje usa las mismas coordenadas que el mapa del juego.
+const OX = 4;
+const OY = 116;
 const big = (tx, ty) => [OX + tx, OY + ty];
 
 async function openGame(page) {
@@ -95,7 +96,7 @@ test('recorrido completo con teclado: título → creación → intro → aterri
 
   // Sobre la playa, Espacio: bajada, impacto y pantalla de resultado.
   await page.evaluate(([x, y]) => window.__isla.placePlane(x, y, Math.PI / 2), big(15, 18));
-  expect((await page.evaluate(() => window.__isla.landing())).zone).toBe('playa');
+  expect((await page.evaluate(() => window.__isla.landing())).result).toBe('arena');
   await press(page, 'Space', 30);
   await page.waitForFunction(() => window.__isla.screen() === 'impact', null, { timeout: 8000 });
   await page.waitForTimeout(700);
@@ -121,11 +122,11 @@ test('recorrido completo con teclado: título → creación → intro → aterri
   expect(errors).toEqual([]);
 });
 
-test('el resultado del aterrizaje depende de la zona; las zonas sin explorar no se pueden elegir', async ({ page }) => {
+test('el resultado del aterrizaje depende de la zona, en cualquier parte de la isla', async ({ page }) => {
   const errors = await openGame(page);
   const land = async (tx, ty) => {
     await page.evaluate(() => { window.__isla.game.newGame(); window.__isla.goto('landing'); });
-    return page.evaluate(([x, y]) => window.__isla.landAt(x, y), big(tx, ty));
+    return page.evaluate(([x, y]) => window.__isla.landAt(x, y), [tx, ty]);
   };
   const state = () => page.evaluate(() => {
     const g = window.__isla.game;
@@ -134,7 +135,7 @@ test('el resultado del aterrizaje depende de la zona; las zonas sin explorar no 
   });
 
   // Selva: −30 de vida y el avión destruido.
-  expect(await land(28, 27)).toBe(true);
+  expect(await land(...big(28, 27))).toBe(true);
   let s = await state();
   expect(s.screen).toBe('impact');
   expect(s.hp).toBe(s.maxHp - 30);
@@ -142,21 +143,21 @@ test('el resultado del aterrizaje depende de la zona; las zonas sin explorar no 
   expect(s.zone).toBe('selva');
 
   // Meseta de las ruinas: −45 y el jugador arriba (nivel 1).
-  expect(await land(38, 4)).toBe(true);
+  expect(await land(...big(38, 4))).toBe(true);
   s = await state();
   expect(s.hp).toBe(s.maxHp - 45);
   expect(s.level).toBe(1);
 
   // Campamento de la tribu: −25 y la tribu acude al terminar el impacto.
-  expect(await land(75, 22)).toBe(true);
+  expect(await land(...big(75, 22))).toBe(true);
   s = await state();
   expect(s.hp).toBe(s.maxHp - 25);
   await page.evaluate(() => window.__isla.game.endImpact());
-  const states = await page.evaluate(() => window.__isla.enemies().map((e) => e.state));
-  expect(states.every((st) => st === 'investigate')).toBe(true);
+  const near = await page.evaluate(() => window.__isla.enemies().filter((e) => e.id <= 3).map((e) => e.state));
+  expect(near.every((st) => st === 'investigate')).toBe(true);
 
   // Mar: el avión se hunde, sin daño, y empiezas en el agua cerca de la costa con los restos en la playa.
-  expect(await land(3, 20)).toBe(true);
+  expect(await land(...big(3, 20))).toBe(true);
   s = await state();
   expect(s.hp).toBe(s.maxHp);
   expect(s.plane.estado).toBe('hundido');
@@ -166,22 +167,26 @@ test('el resultado del aterrizaje depende de la zona; las zonas sin explorar no 
   const props = await page.evaluate(() => window.__isla.game.world.props.filter((p) => p.kind === 'avion' || (p.interact && p.interact.nombre.includes('marea'))).map((p) => p.kind));
   expect(props).toEqual(['caja']);
 
-  // Zona sin explorar (el monte): no aterriza y avisa.
-  await page.evaluate(() => { window.__isla.game.newGame(); window.__isla.goto('landing'); });
-  expect(await page.evaluate(() => window.__isla.landAt(112, 52))).toBe(false);
-  const l = await page.evaluate(() => window.__isla.landing());
-  expect(l.explored).toBe(false);
-  expect(l.msg).toContain('sin explorar');
-  expect(await screen(page)).toBe('landing');
+  // Zonas nuevas de la sesión 5: cada una con su daño y en su sitio.
+  for (const [tx, ty, zone, dano, level] of [[96, 57, 'cumbre', 50, 4], [168, 79, 'militar', 35, 0], [124, 141, 'manglar', 20, 0], [165, 20, 'acantilados', 40, 2], [32, 72, 'poblado', 25, 0]]) {
+    expect(await land(tx, ty)).toBe(true);
+    s = await state();
+    expect(s.zone).toBe(zone);
+    expect(s.hp).toBe(s.maxHp - dano);
+    expect(s.level).toBe(level);
+  }
+  // En el poblado acude toda la tribu cercana.
+  await page.evaluate(() => window.__isla.game.endImpact());
+  const pob = await page.evaluate(() => window.__isla.enemies().filter((e) => e.id >= 4).map((e) => e.state));
+  expect(pob.every((st) => st === 'investigate')).toBe(true);
 
-  // Sin altura sobre una zona sin explorar: amerizaje forzoso.
-  await page.evaluate(() => { window.__isla.freeze(true); window.__isla.placePlane(112, 52, 0); window.__isla.game.landing.alt = 1; });
+  // Sin altura, el avión aterriza solo donde esté.
+  await page.evaluate(() => { window.__isla.game.newGame(); window.__isla.goto('landing'); window.__isla.freeze(true); window.__isla.placePlane(100, 120, 0); window.__isla.game.landing.alt = 1; });
   await step(page, 0.2);
   expect((await page.evaluate(() => window.__isla.landing())).phase).toBe('descent');
   await step(page, 3.2);
   s = await state();
   expect(s.screen).toBe('impact');
-  expect(s.plane.estado).toBe('hundido');
   expect(errors).toEqual([]);
 });
 
@@ -225,7 +230,7 @@ test('dos personajes muy distintos se notan al jugar: vida, salto, velocidad, ru
     // Salto corriendo por la arena despejada hacia el sur.
     await page.evaluate(() => {
       const g = window.__isla.game;
-      g.player.placeAt(17 * 32, 21.6 * 32, 0);
+      g.player.placeAt((17 + 4) * 32, (21.6 + 116) * 32, 0);
       g.camera.snap(g.player);
     });
     await page.keyboard.down('ShiftLeft');
@@ -253,7 +258,7 @@ test('dos personajes muy distintos se notan al jugar: vida, salto, velocidad, ru
       const p = g.player;
       const e = g.enemies[0];
       for (const o of g.enemies) if (o !== e) o.state = 'dead';
-      e.x = 75 * 32; e.y = 20 * 32; e.angle = 0; e.baseAngle = 0;
+      e.x = (75 + 4) * 32; e.y = (20 + 116) * 32; e.angle = 0; e.baseAngle = 0;
       e.state = 'wait'; e.timer = 2.8; e.detect = 0;
       p.placeAt(e.x + 96, e.y, 0);
       p.vx = p.vy = 0;
@@ -313,13 +318,7 @@ test('Inteligencia: pistas en la mochila y menos riesgo de intoxicarse; P abre l
     g.inventory.add('hierba', 1);
   });
   await page.evaluate(() => window.__isla.freeze(true));
-  await page.evaluate(() => {
-    const g = window.__isla.game;
-    const slot = g.inventory.slots.findIndex((s) => s.id === 'carne');
-    g.invOpen = true;
-    g.invSel = slot;
-  });
-  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => window.__isla.use('carne'))).toBe(true);
   await step(page, 1 / 60);
   expect((await player(page)).sick).toBeGreaterThan(0);
   await page.evaluate(() => { window.__isla.game.invOpen = false; });
@@ -347,7 +346,7 @@ test('capturas del flujo de inicio: título, intro y aterrizaje', async ({ page 
   await page.evaluate(() => window.__isla.goto('intro'));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: 'tests/output/intro.png' });
-  await page.evaluate(() => { window.__isla.goto('landing'); window.__isla.placePlane(36, 128, -0.6); });
+  await page.evaluate(() => { window.__isla.goto('landing'); window.__isla.placePlane(60, 120, -0.6); });
   await page.waitForTimeout(600);
   await page.screenshot({ path: 'tests/output/aterrizaje.png' });
   expect(errors).toEqual([]);

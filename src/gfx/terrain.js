@@ -239,9 +239,17 @@ export function renderRegion(map, rx, ry, rw, rh, coarse) {
     for (let x = 0; x < rw; x++) {
       const i = y * rw + x;
       if (distToLand[i] < MARGIN - 4) continue;
-      const tx = Math.min(coarse.W - 1, Math.max(0, Math.floor((rx + x) / TILE)));
-      const ty = Math.min(coarse.H - 1, Math.max(0, Math.floor((ry + y) / TILE)));
-      const cd = Math.max(0, coarse.d[ty * coarse.W + tx] * TILE - 16);
+      // Interpolación bilineal entre centros de tile (sin escalones).
+      const fx = Math.min(coarse.W - 1.001, Math.max(0, (rx + x) / TILE - 0.5));
+      const fy = Math.min(coarse.H - 1.001, Math.max(0, (ry + y) / TILE - 0.5));
+      const ix = fx | 0;
+      const iy = fy | 0;
+      const u = fx - ix;
+      const v = fy - iy;
+      const k = iy * coarse.W + ix;
+      const d = coarse.d;
+      const cv = d[k] * (1 - u) * (1 - v) + d[k + 1] * u * (1 - v) + d[k + coarse.W] * (1 - u) * v + d[k + coarse.W + 1] * u * v;
+      const cd = Math.max(0, cv * TILE - 16);
       distToLand[i] = Math.min(60, Math.max(distToLand[i], cd));
     }
   }

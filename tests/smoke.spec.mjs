@@ -10,6 +10,9 @@ import { resolve } from 'node:path';
 
 const URL = pathToFileURL(resolve('dist/isla.html')).href;
 const TILE = 32;
+// El trozo hecho a mano de la sesión 3 está incrustado en la isla completa en (4, 116).
+const OX = 4;
+const OY = 116;
 const WALK = 110;
 
 async function openGame(page, { start = true } = {}) {
@@ -136,7 +139,7 @@ test('escala la pared de la meseta y llega a las ruinas', async ({ page }) => {
   const errors = await openGame(page);
   await freeze(page);
   await calm(page);
-  await teleport(page, 35, 13);
+  await teleport(page, 35 + OX, 13 + OY);
   await page.keyboard.down('KeyW');
   await step(page, 1.0);
   let p = await player(page);
@@ -197,13 +200,13 @@ test('un enemigo detecta al jugador a la vista, pero no si está oculto en la hi
   await freeze(page);
   await calm(page);
   // Guerrero 2: se le para mirando al este y el jugador se pone delante.
-  const setup = (dx) => page.evaluate((d) => {
+  const setup = (dx) => page.evaluate(([d, ox, oy]) => {
     const g = window.__isla.game;
     const e = g.enemies[1];
-    e.x = 72 * 32; e.y = 20.5 * 32; e.angle = 0; e.state = 'wait'; e.timer = 99; e.baseAngle = 0; e.detect = 0; e.waypoints = [[e.x, e.y]];
+    e.x = (72 + ox) * 32; e.y = (20.5 + oy) * 32; e.angle = 0; e.state = 'wait'; e.timer = 99; e.baseAngle = 0; e.detect = 0; e.waypoints = [[e.x, e.y]];
     g.player.placeAt(e.x + d, e.y, 0);
     g.camera.snap(g.player);
-  }, dx);
+  }, [dx, OX, OY]);
   await setup(80);
   await step(page, 0.4);
   let e = (await page.evaluate(() => window.__isla.enemies()))[1];
@@ -213,15 +216,15 @@ test('un enemigo detecta al jugador a la vista, pero no si está oculto en la hi
   expect(e.state === 'chase' || e.state === 'attack').toBe(true);
 
   // Oculto: agachado en la hierba alta, el guerrero 1 no lo ve aunque mire hacia él.
-  await page.evaluate(() => {
+  await page.evaluate(([ox, oy]) => {
     const g = window.__isla.game;
     const m = g.map;
-    // Una casilla de hierba alta rodeada de hierba alta.
+    // Una casilla de hierba alta rodeada de hierba alta (junto al campamento de la tribu).
     let spot = null;
     for (let ty = 2; ty < m.height - 2 && !spot; ty++) for (let tx = 2; tx < m.width - 2 && !spot; tx++) {
       let ok = true;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (m.groundAt(tx + dx, ty + dy) !== 12) ok = false;
-      if (ok && tx > 55) spot = [tx, ty];
+      if (ok && tx > 55 + ox && tx < 84 + ox && ty > oy) spot = [tx, ty];
     }
     const e = g.enemies[0];
     const px = (spot[0] + 0.5) * 32;
@@ -229,7 +232,7 @@ test('un enemigo detecta al jugador a la vista, pero no si está oculto en la hi
     e.x = px; e.y = py - 70; e.angle = Math.PI / 2; e.state = 'wait'; e.timer = 99; e.baseAngle = Math.PI / 2; e.detect = 0; e.waypoints = [[e.x, e.y]];
     g.player.placeAt(px, py, 0);
     g.camera.snap(g.player);
-  });
+  }, [OX, OY]);
   await page.keyboard.down('KeyC');
   await step(page, 1.5);
   const hidden = await player(page);
@@ -333,7 +336,7 @@ test('muere y reaparece en la playa', async ({ page }) => {
   await step(page, 3.5);
   const p = await player(page);
   expect(p.hp).toBe(Math.ceil(p.maxHp / 2)); // reaparece con la mitad de la vida (TRASPASO §2.4)
-  expect([p.tx, p.ty]).toEqual([17, 20]);
+  expect([p.tx, p.ty]).toEqual([17 + OX, 20 + OY]);
   expect(errors).toEqual([]);
 });
 
@@ -346,11 +349,11 @@ test('capturas: playa, selva, noche y lluvia', async ({ page }) => {
     await page.evaluate(() => window.__isla.game.render());
     await page.screenshot({ path: `tests/output/${name}.png` });
   };
-  await shot('playa', () => { const g = window.__isla.game; g.clock.hours = 11; g.weather.set(false); g.weather.timer = 9999; window.__isla.teleport(15, 19); });
-  await shot('selva', () => { window.__isla.teleport(44, 21); });
-  await shot('cascada', () => { window.__isla.teleport(41, 14); });
-  await shot('campamento', () => { window.__isla.teleport(65, 21); });
-  await shot('noche', () => { const g = window.__isla.game; g.clock.hours = 22; window.__isla.teleport(70, 20); });
-  await shot('lluvia', () => { const g = window.__isla.game; g.clock.hours = 15; g.weather.set(true); window.__isla.teleport(30, 21); });
+  await shot('playa', () => { const g = window.__isla.game; g.clock.hours = 11; g.weather.set(false); g.weather.timer = 9999; window.__isla.teleport(19, 135); });
+  await shot('selva', () => { window.__isla.teleport(48, 137); });
+  await shot('cascada', () => { window.__isla.teleport(45, 130); });
+  await shot('campamento', () => { window.__isla.teleport(69, 137); });
+  await shot('noche', () => { const g = window.__isla.game; g.clock.hours = 22; window.__isla.teleport(74, 136); });
+  await shot('lluvia', () => { const g = window.__isla.game; g.clock.hours = 15; g.weather.set(true); window.__isla.teleport(34, 137); });
   expect(errors).toEqual([]);
 });
