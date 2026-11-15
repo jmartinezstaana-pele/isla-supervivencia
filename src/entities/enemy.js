@@ -222,6 +222,7 @@ export class Warrior {
       if (p.crouching) rate *= 0.5;
       if (p.running) rate *= 1.4;
       if (dist < 45) rate *= 3;
+      rate *= p.stats.detectFactor; // Sigilo / Percepción
       this.detect = Math.min(1, this.detect + rate * dt);
     } else if (!this.alerted) {
       this.detect = Math.max(0, this.detect - 0.3 * dt);

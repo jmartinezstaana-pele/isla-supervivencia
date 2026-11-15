@@ -25,12 +25,6 @@ export const PIXEL_SCALE = VIEW_W / LOW_W;
 /** Escala de dibujo de los sprites: el atlas ya se reduce a la mitad al cargar. */
 export const SPRITE_SCALE = 1;
 
-/**
- * Agilidad provisional del jugador hasta que exista la creación de personaje (Fase 2).
- * Rango previsto en la creación: 0–6.
- */
-export const DEFAULT_AGILITY = 3;
-
 export const PLAYER = {
   boxW: 18,            // caja de colisión de los pies
   boxH: 10,
@@ -51,18 +45,3 @@ export const PLAYER = {
   staminaMax: 100,
   staminaRegen: 30,    // por segundo, en el suelo
 };
-
-/** Distancia de salto corriendo, en tiles, según la Agilidad (TRASPASO §1.5). */
-export function jumpDistanceTiles(agility) {
-  return 2.6 + agility * 0.25;
-}
-
-/** Velocidad de escalada en px/s (TRASPASO §1.5). */
-export function climbSpeed(agility) {
-  return 70 + agility * 10;
-}
-
-/** Gasto de aguante por segundo al escalar (TRASPASO §1.5). */
-export function climbDrain(agility) {
-  return 30 - agility * 3.5;
-}

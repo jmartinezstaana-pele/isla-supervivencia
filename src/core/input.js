@@ -26,6 +26,8 @@ export const BINDINGS = {
   confirm: ['Enter', 'NumpadEnter'],
   attack: ['KeyJ'],
   help: ['F1'],
+  character: ['KeyP'],
+  random: ['KeyX'],
 };
 
 // Teclas cuyo comportamiento por defecto del navegador (scroll, foco…) se anula.

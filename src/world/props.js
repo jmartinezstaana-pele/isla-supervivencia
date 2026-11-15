@@ -277,3 +277,11 @@ export function initialPickups(map, props) {
   out.push({ item: 'piedra', n: 1, x: TILE * 20.3, y: TILE * 19.6 });
   return out.map((o) => ({ ...o, level: map.levelAt(Math.floor(o.x / TILE), Math.floor(o.y / TILE)) }));
 }
+
+/** Restos que el mar arrastra a la playa cuando el avión se hunde (con el botín inicial). */
+export function makeFlotsam(x, y, loot) {
+  return makeProp('caja', sprite('caja', 0, () => S.crate(3)), x, y, {
+    interact: { verbo: 'Registrar', nombre: 'los restos que ha traído la marea' },
+    loot: loot.map(([id, n]) => [id, n]),
+  });
+}

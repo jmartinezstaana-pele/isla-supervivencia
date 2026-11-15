@@ -120,6 +120,15 @@ export function useItem(game, id) {
   game.inventory.remove(id, 1);
   const verbo = def.tipo === 'bebida' ? 'Bebes' : def.tipo === 'cura' ? 'Usas' : 'Comes';
   p.say(`${verbo}: ${def.nombre.toLowerCase()}.`);
+  if (def.curaVeneno && p.sick > 0) {
+    p.sick = 0;
+    p.say('Se te asienta el estómago.');
+  }
+  // Riesgo de intoxicación: menor cuanto más Inteligencia (TRASPASO §1.5).
+  if (def.riesgo && game.rng() < p.sicknessChance(def.riesgo)) {
+    p.sick = 30;
+    p.say('Algo te ha sentado mal… Estás intoxicado.');
+  }
   game.sound(def.tipo === 'bebida' ? 'drink' : def.tipo === 'cura' ? 'heal' : 'eat');
   return true;
 }

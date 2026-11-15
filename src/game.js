@@ -1,5 +1,6 @@
 // Estado del juego: la isla, el jugador, los enemigos y todos los sistemas
-// (tiempo, clima, saqueo, combate, sigilo). Pantallas: título → juego.
+// (tiempo, clima, saqueo, combate, sigilo). Pantallas: título → creación →
+// intro → aterrizaje → impacto → juego.
 
 import { TILE, PIXEL_SCALE } from './config.js';
 import { Player } from './entities/player.js';
@@ -11,10 +12,17 @@ import { WaterLayer } from './render/water.js';
 import { Particles, emitAmbient } from './render/particles.js';
 import { Ambience } from './render/ambience.js';
 import { Lighting } from './render/lighting.js';
-import { drawHud, drawTitle } from './render/hud.js';
+import { drawHud, drawImpact } from './render/hud.js';
+import { DEFAULT_ATTRS } from './data/attributes.js';
+import { DEFAULT_COLORS, recolorAtlas, partAverage } from './gfx/recolor.js';
+import { LANDING_RESULTS, OX as LAND_OX, OY as LAND_OY } from './world/landingMap.js';
+import { TitleScreen } from './ui/title.js';
+import { CreationScreen } from './ui/creation.js';
+import { IntroScreen } from './ui/intro.js';
+import { LandingScreen } from './ui/landing.js';
 import { buildIsland, zoneAt, PLACES, shoreX } from './world/islandMap.js';
 import { PropGrid, nudgeFree } from './world/collision.js';
-import { buildProps, initialPickups } from './world/props.js';
+import { buildProps, initialPickups, makeFlotsam } from './world/props.js';
 import { renderTerrain } from './gfx/terrain.js';
 import { G } from './world/tiles.js';
 import { Clock } from './systems/clock.js';
@@ -40,34 +48,57 @@ export class Game {
     this.images = images;
     this.audio = audio;
     this.screen = 'title';
+    this.rng = Math.random;
     this.map = buildIsland();
     this.terrain = renderTerrain(this.map);
-    this.world = { map: this.map, grid: new PropGrid(this.map.pixelWidth, this.map.pixelHeight), props: buildProps(this.map) };
-    for (const p of this.world.props) if (p.solid) this.world.grid.add(p);
-    this.pickups = initialPickups(this.map, this.world.props);
-    this.bodies = [];
-    this.inventory = new Inventory();
-    this.player = new Player(sprites.player.frames);
-    this.player.placeAt(this.map.spawn.x, this.map.spawn.y, 0);
-    this.player.facing = 'right';
     this.camera = new Camera(this.map.pixelWidth, this.map.pixelHeight);
-    this.camera.snap(this.player);
     this.renderer = new Renderer(this);
     this.water = new WaterLayer(this.map, this.terrain);
     this.particles = new Particles();
     this.ambience = new Ambience();
     this.lighting = new Lighting();
+    this.debug = false;
+    this.fps = 60;
+    this.waterfall = null;
+    this.character = { attrs: { ...DEFAULT_ATTRS }, colors: { ...DEFAULT_COLORS } };
+    this.resetWorld();
+    this.waterfall = this.findWaterfall();
+    this.screens = {
+      title: new TitleScreen(this),
+      create: new CreationScreen(this),
+      intro: new IntroScreen(this),
+      landing: new LandingScreen(this),
+    };
+    this.landing = this.screens.landing;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.screen === 'play') this.paused = true;
+    });
+  }
+
+  /** Deja la isla como al principio: props, botín, enemigos, reloj, clima y jugador nuevo. */
+  resetWorld() {
+    this.world = { map: this.map, grid: new PropGrid(this.map.pixelWidth, this.map.pixelHeight), props: buildProps(this.map) };
+    for (const p of this.world.props) if (p.solid) this.world.grid.add(p);
+    this.pickups = initialPickups(this.map, this.world.props);
+    this.bodies = [];
+    this.inventory = new Inventory();
+    this.player = new Player(this.sprites.playerBase.frames);
+    this.player.setAttributes(this.character.attrs);
+    this.player.hp = this.player.maxHp;
+    this.player.placeAt(this.map.spawn.x, this.map.spawn.y, 0);
+    this.player.facing = 'right';
+    this.camera.snap(this.player);
+    this.particles = new Particles();
     this.clock = new Clock(16);
     this.weather = new Weather(this.map);
     this.zone = zoneAt(this.player.x, this.player.y);
     this.banner = { zone: this.zone, age: 0 };
     this.time = 0;
-    this.debug = false;
     this.paused = false;
     this.invOpen = false;
+    this.charOpen = false;
     this.invSel = 0;
     this.helpT = 30;
-    this.fps = 60;
     this.hitstop = 0;
     this.shake = 0;
     this.hurtFlash = 0;
@@ -77,11 +108,160 @@ export class Game {
     this.stats = { saqueos: 0, eliminaciones: 0, sigilosas: 0 };
     this.interaction = null;
     this.killTarget = null;
+    this.plane = { zone: 'playa', estado: 'reparable' };
+    this.impact = null;
     this.spawnEnemies();
-    this.waterfall = this.findWaterfall();
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && this.screen === 'play') this.paused = true;
-    });
+  }
+
+  /** Cambia de pantalla ('title', 'create', 'intro', 'landing', 'impact', 'play'). */
+  goto(screen) {
+    this.screen = screen;
+    const s = this.screens[screen];
+    if (s && s.enter) s.enter();
+    this.input.clear();
+  }
+
+  /**
+   * Nueva partida con el personaje creado: atributos y colores (recoloreado del
+   * sprite, TRASPASO §2.6). La isla vuelve a su estado inicial.
+   */
+  newGame({ attrs = DEFAULT_ATTRS, colors = DEFAULT_COLORS } = {}) {
+    this.character = { attrs: { ...attrs }, colors: { ...colors } };
+    this.sprites.player = { image: recolorAtlas(this.sprites.playerBase, colors), frames: this.sprites.playerBase.frames };
+    this.resetWorld();
+  }
+
+  /** Color medio de una parte del personaje en la vista previa ('preview') o en el juego ('game'). */
+  debugPartColor(part, which) {
+    const atlas = which === 'preview' ? this.screens.create.previewAtlas() : this.sprites.player.image;
+    return partAverage(this.sprites.playerBase, atlas, part);
+  }
+
+  /** Empieza a jugar ya, en la playa y sin aterrizaje (pruebas y depuración). */
+  quickStart(character) {
+    if (character || !this.sprites.player) this.newGame(character);
+    this.start();
+  }
+
+  /**
+   * Aplica el resultado del aterrizaje (TRASPASO §2.4): daño según la zona,
+   * restos del avión con el botín inicial donde ha caído y el jugador al lado.
+   * `result`: { zone, x, y, forced } con x, y en casillas de la isla grande.
+   */
+  landAt(result) {
+    const R = LANDING_RESULTS[result.zone];
+    const p = this.player;
+    const wreck = this.world.props.find((pr) => pr.kind === 'avion');
+    const map = this.map;
+    let tx = result.x - LAND_OX;
+    let ty = result.y - LAND_OY;
+    const inside = tx >= 0 && ty >= 0 && tx < map.width && ty < map.height;
+    let place;
+    if (result.zone === 'mar') {
+      // El avión se hunde: la corriente te deja nadando cerca de la costa y arrastra los restos a la playa.
+      ty = Math.max(3, Math.min(map.height - 4, inside ? ty : ty < 0 ? 4 : map.height - 5));
+      const shore = shoreX(ty);
+      const sx = inside ? Math.min(tx, shore - 4.5) : shore - 4.5;
+      p.placeAt(sx * TILE, (Math.floor(ty) + 0.6) * TILE, 0);
+      this.removeProp(wreck);
+      const fl = makeFlotsam((shore + 2) * TILE, (Math.floor(ty) + 0.8) * TILE, wreck.loot);
+      this.addProp(fl);
+      place = { x: fl.x, y: fl.y };
+    } else {
+      place = this.findWreckSpot(result.zone, tx, ty);
+      this.clearAround(place.x, place.y, place.level);
+      this.removeProp(wreck);
+      wreck.x = place.x;
+      wreck.y = place.y;
+      wreck.level = place.level;
+      wreck.col = { x: place.x - 48, y: place.y - 16, w: 96, h: 16 };
+      this.addProp(wreck);
+      const box = { x: place.x - 9, y: place.y + 26 - 10, w: 18, h: 10 };
+      nudgeFree(this.world, box, place.level, 64);
+      p.placeAt(box.x + 9, box.y + 10, place.level);
+    }
+    p.hp = Math.max(1, p.maxHp - R.dano);
+    p.facing = 'down';
+    this.plane = { zone: result.zone, estado: R.avion };
+    this.camera.snap(p);
+    this.zone = zoneAt(p.x, p.y);
+    this.impact = { result, R, t: 0, place };
+    this.screen = 'impact';
+    this.input.clear();
+  }
+
+  /** Busca un sitio para los restos del avión cerca del punto de impacto, en la misma zona. */
+  findWreckSpot(zone, tx, ty) {
+    const map = this.map;
+    const wantLevel = zone === 'ruinas' ? 1 : 0;
+    const ok = (cx, cy) => {
+      // Caja de los restos (96 × 16) y sitio para el jugador debajo, en suelo pisable del mismo nivel.
+      for (let y = cy - 16; y <= cy + 34; y += 8) {
+        for (let x = cx - 50; x <= cx + 50; x += 8) {
+          const gx = Math.floor(x / TILE);
+          const gy = Math.floor(y / TILE);
+          if (!map.inBounds(gx, gy)) return false;
+          const g = map.groundAt(gx, gy);
+          if (map.levelAt(gx, gy) !== wantLevel || g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S || g === G.DEEP || g === G.SHALLOW || g === G.BRIDGE) return false;
+        }
+      }
+      if (zoneAt(cx, cy) !== zone && zone !== 'ruinas') return false;
+      return !this.world.props.some((pr) => pr.interact && pr.kind !== 'avion' && Math.abs(pr.x - cx) < 70 && Math.abs(pr.y - cy) < 46);
+    };
+    const x0 = Math.max(2, Math.min(map.width - 3, tx)) * TILE;
+    const y0 = Math.max(2, Math.min(map.height - 3, ty)) * TILE;
+    for (let r = 0; r <= 16 * TILE; r += 8) {
+      const n = Math.max(1, Math.round((2 * Math.PI * r) / 16));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const cx = Math.round(x0 + Math.cos(a) * r);
+        const cy = Math.round(y0 + Math.sin(a) * r);
+        if (ok(cx, cy)) return { x: cx, y: cy, level: wantLevel };
+      }
+    }
+    const [wx, wy] = PLACES.wreck;
+    return { x: wx * TILE, y: wy * TILE, level: 0 };
+  }
+
+  /** Quita la vegetación y los props sin botín que queden debajo de los restos. */
+  clearAround(cx, cy, level) {
+    for (const pr of [...this.world.props]) {
+      if (pr.interact || pr.kind === 'avion' || (pr.level || 0) !== level) continue;
+      if (pr.x > cx - 74 && pr.x < cx + 74 && pr.y > cy - 40 && pr.y < cy + 40) this.removeProp(pr);
+    }
+    this.pickups = this.pickups.filter((pk) => !(pk.x > cx - 56 && pk.x < cx + 56 && pk.y > cy - 20 && pk.y < cy + 8));
+  }
+
+  removeProp(pr) {
+    const i = this.world.props.indexOf(pr);
+    if (i >= 0) this.world.props.splice(i, 1);
+    if (pr.solid) this.world.grid.remove(pr);
+  }
+
+  addProp(pr) {
+    this.world.props.push(pr);
+    if (pr.solid) this.world.grid.add(pr);
+  }
+
+  /** Tras la pantalla del impacto: empieza a jugar (y la tribu acude si caíste en su campamento). */
+  endImpact() {
+    const im = this.impact;
+    this.start();
+    if (im && im.result.zone === 'campamento') {
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        e.lastSeen = { x: im.place.x, y: im.place.y + 20 };
+        e.state = 'investigate';
+        e.detect = Math.max(e.detect, 0.6);
+        e.say('!', 2);
+      }
+      this.player.say('¡El estruendo ha alertado a la tribu!');
+      this.sound('alert');
+    } else if (im && im.result.zone === 'mar') {
+      this.player.say(im.result.forced ? 'Amerizas. La corriente te arrastra hasta la costa.' : 'El avión se hunde. ¡Nada hasta la orilla!');
+    } else if (im) {
+      this.player.say(im.R.avion === 'reparable' ? 'El avión aguanta. Quizá se pueda reparar.' : 'El avión ha quedado destrozado.');
+    }
   }
 
   spawnEnemies() {
@@ -175,19 +355,38 @@ export class Game {
     const input = this.input;
     if (dt > 0) this.fps += (1 / dt - this.fps) * 0.05;
     this.lastDt = dt;
-    if (this.screen === 'title') {
-      if (input.pressed('confirm') || input.mouse.pressed[0] || input.pressed('jump')) this.start();
+    const menu = this.screens[this.screen];
+    if (menu) {
+      menu.update(dt, input);
+      input.endFrame();
+      return;
+    }
+    if (this.screen === 'impact') {
+      this.impact.t += dt;
+      this.time += dt;
+      this.particles.update(dt);
+      if (this.impact.t > 0.6 && (input.pressed('confirm') || input.pressed('jump') || input.mouse.pressed[0])) this.endImpact();
       input.endFrame();
       return;
     }
     if (input.pressed('debug')) this.debug = !this.debug;
     if (input.pressed('help')) this.helpT = this.helpT > 0 ? 0 : 9999;
-    if (input.pressed('inventory') && !this.player.dead) this.invOpen = !this.invOpen;
+    if (input.pressed('inventory') && !this.player.dead) {
+      this.invOpen = !this.invOpen;
+      this.charOpen = false;
+    }
+    if (input.pressed('character') && !this.player.dead) {
+      this.charOpen = !this.charOpen;
+      this.invOpen = false;
+    }
     if (input.pressed('pause')) {
       if (this.invOpen) this.invOpen = false;
+      else if (this.charOpen) this.charOpen = false;
       else this.paused = !this.paused;
     }
-    if (this.invOpen) {
+    if (this.charOpen) {
+      // Pantalla de personaje: el mundo se detiene.
+    } else if (this.invOpen) {
       this.updateInventoryUI();
     } else if (!this.paused) {
       if (input.pressed('timeSkip')) this.clock.advance(2);
@@ -283,7 +482,7 @@ export class Game {
     if (!a || a.resolved || a.t < 0.07) return;
     a.resolved = true;
     const knife = this.inventory.has('cuchillo');
-    const dmg = knife ? ITEMS.cuchillo.dano : 6;
+    const dmg = Math.round((knife ? ITEMS.cuchillo.dano : 6) * p.stats.damageFactor);
     const range = knife ? 34 : 26;
     let hitAny = false;
     for (const e of this.targets()) {
@@ -340,7 +539,8 @@ export class Game {
     const p = this.player;
     const [sx, sy] = PLACES.spawn;
     p.placeAt(sx * TILE, sy * TILE, 0);
-    p.hp = 60;
+    p.hp = Math.ceil(p.maxHp / 2);
+    p.sick = 0;
     p.needs.hambre = Math.max(p.needs.hambre, 40);
     p.needs.sed = Math.max(p.needs.sed, 40);
     p.invuln = 2;
@@ -372,8 +572,9 @@ export class Game {
   }
 
   render() {
-    if (this.screen === 'title') {
-      drawTitle(this.ctx, this);
+    const menu = this.screens[this.screen];
+    if (menu) {
+      menu.render(this.ctx);
       return;
     }
     this.renderer.render(this.ctx);
@@ -387,7 +588,8 @@ export class Game {
       c.fillStyle = `rgba(200, 20, 10, ${(this.hurtFlash * 0.5).toFixed(3)})`;
       c.fillRect(0, 0, c.canvas.width, c.canvas.height);
     }
-    drawHud(c, this);
+    if (this.screen === 'impact') drawImpact(c, this);
+    else drawHud(c, this);
   }
 
   /** Dibujo sobre la iluminación (conos de visión, indicadores). */

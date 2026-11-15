@@ -3,10 +3,8 @@
 // agua poco profunda / profunda. (x, y) son los pies; la colisión es una caja
 // pequeña en los pies.
 
-import {
-  PLAYER as P, PHYSICS_STEP, TILE, SPRITE_SCALE, DEFAULT_AGILITY,
-  jumpDistanceTiles, climbSpeed, climbDrain,
-} from '../config.js';
+import { PLAYER as P, PHYSICS_STEP, TILE, SPRITE_SCALE } from '../config.js';
+import { DEFAULT_ATTRS, deriveStats } from '../data/attributes.js';
 import { approach, clamp } from '../core/math.js';
 import { moveAxis, boxFree, nudgeFree } from '../world/collision.js';
 import { G } from '../world/tiles.js';
@@ -25,7 +23,6 @@ export class Player {
     this.facing = 'down';      // 'up' | 'down' | 'left' | 'right'
     this.lastSide = 1;         // último lado (1 derecha, −1 izquierda) para sprites laterales
     this.state = 'walk';       // 'walk' | 'jump' | 'hop' | 'climb' | 'fall' | 'stunned'
-    this.agility = DEFAULT_AGILITY;
     this.stamina = P.staminaMax;
     this.staminaDelay = 0;
     this.running = false;
@@ -55,6 +52,27 @@ export class Player {
     this.ky = 0;
     this.torchOn = false;
     this.starve = 0;
+    this.sick = 0;             // segundos de intoxicación que quedan
+    this.sickTick = 0;
+    this.setAttributes(DEFAULT_ATTRS);
+    this.hp = this.maxHp;
+  }
+
+  /** Aplica los atributos de la creación de personaje (TRASPASO §1.5). */
+  setAttributes(attrs) {
+    this.attrs = { ...attrs };
+    this.stats = deriveStats(this.attrs);
+    this.maxHp = this.stats.maxHp;
+    this.hp = Math.min(this.hp, this.maxHp);
+  }
+
+  get agility() {
+    return this.attrs.agilidad;
+  }
+
+  /** Probabilidad de enfermar con un alimento de riesgo `riesgo` (0–1), según la Inteligencia. */
+  sicknessChance(riesgo) {
+    return riesgo * this.stats.sickFactor;
   }
 
   get dead() {
@@ -68,6 +86,10 @@ export class Player {
 
   /** Radio de ruido (px) que pueden oír los enemigos. */
   get noise() {
+    return this.baseNoise * this.stats.noiseFactor;
+  }
+
+  get baseNoise() {
     if (this.attack) return 110;
     const speed = Math.hypot(this.vx, this.vy);
     if (speed < 8) return 0;
@@ -107,6 +129,16 @@ export class Player {
     n.hambre = Math.max(0, n.hambre - dt / 6);
     n.sed = Math.max(0, n.sed - dt / 4);
     n.energia = Math.max(0, n.energia - (dt / 10) * (this.running && moving ? 3 : 1));
+    if (this.sick > 0) {
+      // Intoxicación: sed más rápida y pierde vida poco a poco.
+      this.sick = Math.max(0, this.sick - dt);
+      n.sed = Math.max(0, n.sed - dt / 4);
+      this.sickTick += dt;
+      if (this.sickTick > 2.5) {
+        this.sickTick = 0;
+        this.hp = Math.max(1, this.hp - 1);
+      }
+    }
     if (n.hambre <= 0 || n.sed <= 0) {
       this.starve += dt;
       if (this.starve > 2) {
@@ -208,12 +240,13 @@ export class Player {
 
     this.crouching = input.isDown('crouch') && !deep;
     this.running = input.isDown('run') && !this.crouching && !deep && len > 0;
-    let speed = this.crouching ? P.crouchSpeed : this.running ? P.runSpeed : P.walkSpeed;
+    const sf = this.stats.speedFactor;
+    let speed = (this.crouching ? P.crouchSpeed : this.running ? P.runSpeed : P.walkSpeed) * sf;
     if (this.terrain === 'shallow') speed *= P.shallowFactor;
-    if (deep) speed = P.swimSpeed;
+    if (deep) speed = P.swimSpeed * sf;
     if (this.running && this.needs.energia < 12) {
       this.running = false;
-      speed = P.walkSpeed;
+      speed = P.walkSpeed * sf;
     }
     if (this.attack) speed *= 0.45;
 
@@ -287,7 +320,7 @@ export class Player {
 
   // ---------------------------------------------------------------- saltar
   startJump(dx, dy) {
-    const dist = jumpDistanceTiles(this.agility) * TILE * (this.running ? 1 : P.walkJumpFactor);
+    const dist = this.stats.jumpTiles * TILE * (this.running ? 1 : P.walkJumpFactor);
     const v = dist / P.jumpTime;
     this.jump = { t: 0, vx: dx * v, vy: dy * v, startX: this.x, startY: this.y, startLevel: this.level };
     this.vx = this.jump.vx;
@@ -387,13 +420,13 @@ export class Player {
     const c = this.climb;
     const ax = input.axisX();
     const ay = input.axisY();
-    const speed = climbSpeed(this.agility);
+    const speed = this.stats.climbSpeed;
     const moving = ax !== 0 || ay !== 0;
     this.y += ay * speed * dt;
     this.x = clamp(this.x + ax * speed * 0.5 * dt, c.minX, c.maxX);
     this.vy = ay * speed;
     c.t += moving ? dt : 0;
-    this.stamina = Math.max(0, this.stamina - climbDrain(this.agility) * (moving ? 1 : 0.4) * dt);
+    this.stamina = Math.max(0, this.stamina - this.stats.climbDrain * (moving ? 1 : 0.4) * dt);
 
     const topY = c.topRow * TILE - 1;               // pies dentro del tile de arriba
     const bottomY = (c.bottomRow + 1) * TILE + P.boxH + 1; // caja entera debajo de la pared
@@ -472,10 +505,10 @@ export class Player {
     } else if (this.swimming) {
       if (speed > 5) a.play(WALK_ANIM[this.facing], 5, dt);
       else a.hold(WALK_ANIM[this.facing], 0);
-    } else if (speed > P.walkSpeed + 10) {
-      a.play(RUN_ANIM[this.facing], 13 * (speed / P.runSpeed), dt);
+    } else if (speed > P.walkSpeed * this.stats.speedFactor + 10) {
+      a.play(RUN_ANIM[this.facing], 13 * (speed / (P.runSpeed * this.stats.speedFactor)), dt);
     } else if (speed > 8) {
-      a.play(WALK_ANIM[this.facing], Math.max(4, 9 * (speed / P.walkSpeed)), dt);
+      a.play(WALK_ANIM[this.facing], Math.max(4, 9 * (speed / (P.walkSpeed * this.stats.speedFactor))), dt);
     } else {
       a.hold(WALK_ANIM[this.facing], 0);
     }
@@ -493,7 +526,7 @@ export class Player {
     if (this.swimming) return 'nadando';
     const speed = Math.hypot(this.vx, this.vy);
     if (this.crouching) return 'agachado';
-    if (speed > P.walkSpeed + 10) return 'corriendo';
+    if (speed > P.walkSpeed * this.stats.speedFactor + 10) return 'corriendo';
     if (speed > 8) return 'andando';
     return 'quieto';
   }
