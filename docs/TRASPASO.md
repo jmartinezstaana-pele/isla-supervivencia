@@ -97,6 +97,21 @@ Cada decisión lleva una etiqueta:
 
 ### 1.6 Dirección artística
 
+> **[ACORDADO-USUARIO] (15/11/2026, tras ver la sesión 2) — LA ESTÉTICA ACTUAL ES INACEPTABLE.** Javier ha visto la vista cenital de la sesión 2 (captura en `assets-src/referencias/rechazado-sesion2.png`: hierba plana, árboles de clip-art, bordes grises, playa en franjas rectas) y dice, con sus palabras: *"la estética es horrible, no puede ser así, necesito que se empiece a ver bien"*. Ha aportado como **objetivo de estilo** la ilustración `assets-src/referencias/objetivo-estilo-selva.png` (copia ligera en `assets/selva.jpg`).
+>
+> Lo que se ve en esa ilustración, y que el juego debe transmitir en vista cenital:
+> - selva frondosa con capas de vegetación (helechos, palmeras, lianas colgando, flores rojas y moradas);
+> - **muros de piedra y acantilados con musgo**;
+> - **caminos de tierra**;
+> - **puente colgante** de madera y cuerda;
+> - **cascada** y río;
+> - **templo o ruinas de piedra** al fondo;
+> - cajas, barriles, carteles de madera (flecha, calavera), tótems de piedra, vallas;
+> - paleta de verdes ricos con contraste de luz y sombra;
+> - **contorno oscuro de cómic** y **sombreado cel-shaded**, coherente con los sprites del protagonista.
+>
+> Es una ilustración en perspectiva lateral, no un tileset: sirve como referencia de **paleta, elementos y ambiente**, y puede usarse tal cual en pantallas (título, carga, carteles de zona). **No se acepta otra iteración visual del nivel de la captura rechazada.** Ver la tarea §4c.
+
 **[ACORDADO-USUARIO]** Javier aportó una carpeta de imágenes (`C:\Users\Javier\Desktop\Imagenes`, 15 archivos) que marca el estilo. Lo que se observa:
 
 - **"Estilo cel-shaded, cómic indie"**: así lo rotula la propia imagen `2. Personaje.png`.
@@ -475,6 +490,92 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 | **8. Fauna, noche y clima** | Jabalí, serpiente, depredador nocturno, tiburones, cazadores nocturnos, antorcha (da luz pero también te delata). Lluvia y tormenta, niebla, frío en la cumbre, oscuridad real | La noche es claramente más peligrosa. La antorcha ahuyenta al depredador. La lluvia y la oscuridad cambian cómo se juega (visibilidad, sigilo, agua, fuego). |
 | **9. Finales y secretos** | Radio, balsa, avión, notas, diario de objetivos, secreto de los cristales, pantalla final con estadísticas | Los 3 finales se pueden completar en una partida de prueba. El diario refleja las pistas encontradas. |
 | **10. Pulido** | Equilibrio (30–60 min por partida), HUD, audio, rendimiento a 60 fps, documento de funciones hechas / parciales / pendientes | Una partida completa sin bloqueos ni errores de consola. Documentación al día. |
+
+---
+
+## 4c. SIGUIENTE TAREA para Claude Code (sesión 3): estética de verdad + primer espacio jugable
+
+> **Esta sección manda sobre todo lo anterior del plan.** Instrucción expresa de Javier ([ACORDADO-USUARIO], 15/11/2026): *"que no corte hasta que no tenga un espacio jugable para batallar, buscar, o con al menos un par de paisajes y eventos como lluvia"*.
+>
+> **No terminar la sesión ni pedir confirmación hasta cumplir TODA la definición de terminado de abajo.** Si algo se complica, hacer una versión sencilla que funcione y seguir, sin parar. Las decisiones técnicas y de diseño menores se toman sin preguntar. Solo se consultan las que cambien la visión del juego (§0).
+
+### A. Estética (prioridad 1, se valida antes de dar nada por bueno)
+
+Objetivo: que una captura del juego se parezca en **ambiente, paleta y riqueza** a `assets-src/referencias/objetivo-estilo-selva.png`, y nada a `assets-src/referencias/rechazado-sesion2.png`.
+
+[RECOMENDACIÓN] Cómo conseguirlo sin artista y en Canvas 2D:
+
+1. **Coherencia con los sprites (pixel art con contorno):**
+   - renderizar el mundo a **baja resolución interna** (por ejemplo, 480 × 270 o 640 × 360) y escalar **sin suavizado** (`imageSmoothingEnabled = false`), con los sprites a la misma escala;
+   - mezclar en pantalla gráficos vectoriales lisos y pixel art es lo que hace que ahora se vea mal.
+2. **Tileset propio pintado por código** a ese tamaño, generado una vez en canvas fuera de pantalla al arrancar y cacheado:
+   - variaciones por tile (3–4 por tipo);
+   - **autotiling** (bordes y esquinas suaves entre hierba, tierra, arena y agua; nada de franjas rectas);
+   - ruido y detalle (briznas, piedrecitas, flores);
+   - **contorno oscuro** en los bordes de altura.
+3. **Alturas que se lean:**
+   - acantilados con **cara de piedra visible** (bloques, grietas, **musgo y lianas colgando**, como en la referencia);
+   - borde superior con hierba que sobresale;
+   - sombra proyectada al pie.
+4. **Props con volumen y contorno cel-shaded:**
+   - palmeras (vistas desde arriba: copa de hojas en estrella), árboles de selva con copa grande que **tapa al jugador al pasar por detrás** (semitransparencia);
+   - helechos, arbustos, flores rojas y moradas, rocas con musgo, troncos caídos;
+   - cajas, barriles, carteles, tótems de piedra, vallas de madera.
+   - Todo con sombra proyectada y ordenado por profundidad.
+5. **Agua viva:**
+   - orilla con espuma animada y degradado de arena mojada;
+   - olas, reflejos y profundidad por color;
+   - río con corriente y **cascada**.
+6. **Capas de ambiente:**
+   - sombras de nubes que se mueven por el suelo;
+   - hojas y partículas cayendo, motas de luz en la selva;
+   - viñeta y gradación de color por zona (selva verde y húmeda, playa cálida);
+   - balanceo de la vegetación con el viento.
+7. **Iluminación:** capa de luz y oscuridad con luces radiales (antorcha, hoguera) para la noche y los interiores.
+8. **Usar las ilustraciones** de Javier en pantallas: `avion.jpg` en el título, `selva.jpg` en la carga o en el cartel de la zona selva, `paisaje.jpg` en la creación del personaje.
+
+### B. Espacio jugable (prioridad 2)
+
+Un trozo de isla hecho **a mano** (no hace falta aún la isla entera), unos **3–4 pantallas de ancho por 3 de alto**, con **al menos 2 paisajes diferenciados**:
+
+1. **Playa** con palmeras, restos del avión estrellado (cofre con botín inicial), cangrejos y orilla.
+2. **Selva** con desnivel: un acantilado escalable, un río con **puente colgante**, una zona de hierba alta, **unas ruinas de piedra pequeñas**, y un campamento enemigo con hoguera y cofres.
+
+Mecánicas que tienen que funcionar en ese espacio (versión sencilla pero real; sustituyen parcialmente a las fases 5 y 7 de §4):
+
+- **Buscar / saquear:**
+  - E para abrir cofres, cajas y restos del avión, y para recoger objetos del suelo y de arbustos;
+  - **inventario** básico (I/Tab) con objetos con nombre e icono;
+  - consumir comida y agua.
+- **Batallar:**
+  - ataque cuerpo a cuerpo hacia el ratón (con el cuchillo de los restos del avión), con pausa breve al golpear, retroceso y números de daño;
+  - vida del jugador, muerte y reaparición;
+  - **2–3 enemigos de la tribu** que patrullan, tienen **cono de visión dibujado**, sospechan (?), persiguen (!), atacan y abandonan la persecución;
+  - **un animal** (jabalí) que carga.
+  - **Sigilo mínimo:** agacharse en la hierba alta te oculta; ataque por la espalda sin ser visto (F) elimina de un golpe.
+- **HUD:** vida, hambre, sed, energía (pueden bajar despacio), reloj, aviso de interacción.
+
+### C. Eventos y clima (prioridad 3, obligatorio)
+
+- **Ciclo día/noche** visible (iluminación que cambia y noche oscura con radio de visión reducido).
+- **Lluvia** como evento: aparece cada cierto tiempo, con partículas, charcos o salpicaduras en el agua, cielo oscurecido y sonido opcional. **Afecta al juego:** los enemigos oyen menos y ven menos lejos.
+- [RECOMENDACIÓN] Un segundo evento si da tiempo: niebla matinal o tormenta con relámpagos.
+
+### Definición de terminado de la sesión 3
+
+1. Se abre `dist/isla.html` con doble clic y se juega sin errores de consola.
+2. **Capturas** de la playa, la selva, la noche y la lluvia en `tests/output/`, revisadas comparándolas con la referencia. Si no se parecen en riqueza y ambiente, **se sigue mejorando**.
+3. En una partida de prueba se puede, en este orden:
+   - saquear los restos del avión;
+   - recoger cosas;
+   - comer;
+   - colarse en el campamento por la hierba alta;
+   - eliminar a un enemigo por la espalda;
+   - pelear con otro;
+   - ver llover;
+   - ver anochecer.
+4. `npm run build` y `npm test` en verde, con pruebas nuevas para: abrir el cofre, recoger un objeto, que un enemigo detecte, que un ataque haga daño y que se active la lluvia.
+5. README, CHANGELOG y este documento actualizados, con un informe honesto de qué funciona, qué está a medias y qué falta.
 
 ---
 
