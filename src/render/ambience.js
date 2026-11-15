@@ -14,7 +14,7 @@ const ZONE_TINT = {
   campamento: [150, 70, 30, 0.08],
   poblado: [160, 70, 30, 0.1],
   monte: [60, 90, 110, 0.08],
-  cumbre: [170, 200, 240, 0.16],
+  cumbre: [120, 150, 200, 0.18],
   militar: [130, 120, 80, 0.12],
   acantilados: [100, 140, 160, 0.1],
   manglar: [40, 70, 50, 0.22],
@@ -63,7 +63,7 @@ export class Ambience {
         const k = (n - 0.42) * 3;
         const i = (y * F + x) * 4;
         // Trama por capas: niebla en bandas de opacidad, al estilo pixel art.
-        const a = k > bayer(x, y) * 0.6 + 0.5 ? 120 : k > bayer(x, y) * 0.6 ? 70 : k > bayer(x, y) * 0.6 - 0.4 ? 30 : 0;
+        const a = k > bayer(x, y) * 0.6 + 0.5 ? 150 : k > bayer(x, y) * 0.6 ? 95 : k > bayer(x, y) * 0.6 - 0.4 ? 45 : 0;
         fd[i] = 214; fd[i + 1] = 228; fd[i + 2] = 220; fd[i + 3] = a;
       }
     }

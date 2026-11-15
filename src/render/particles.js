@@ -41,8 +41,12 @@ export class Particles {
           break;
         }
         case 'snow': {
+          // Copo con sombra azulada para que se lea también sobre la nieve.
+          const sz = p.seed > 6 ? 2 : 1;
+          l.fillStyle = '#7f94ac';
+          l.fillRect(Math.round(p.x) + 1, Math.round(p.y) + 1, sz, sz);
           l.fillStyle = p.color;
-          l.fillRect(Math.round(p.x), Math.round(p.y), p.seed > 6 ? 2 : 1, p.seed > 6 ? 2 : 1);
+          l.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
           break;
         }
         case 'gust': {
@@ -150,7 +154,7 @@ export function emitAmbient(game, dt) {
     // Ventisca: copos que cruzan en diagonal y rachas de nieve.
     const k = zone === 'cumbre' ? 1 : 0.45;
     for (let i = 0; i < 2; i++) if (Math.random() < dt * 60 * k) P.add({ type: 'snow', x: cam.ix - 20 + Math.random() * (cam.viewW + 40), y: cam.iy - 6, vx: -40 - Math.random() * 50, vy: 30 + Math.random() * 30, life: 8, color: Math.random() < 0.3 ? '#c8d8e8' : '#ffffff', seed: Math.random() * 9 });
-    if (Math.random() < dt * 3 * k) P.add({ type: 'gust', x: cam.ix + cam.viewW + 10, y: ry(), vx: -260 - Math.random() * 80, vy: 10, life: 2.4, color: '#f2f8ff' });
+    if (Math.random() < dt * 3 * k) P.add({ type: 'gust', x: cam.ix + cam.viewW + 10, y: ry(), vx: -260 - Math.random() * 80, vy: 10, life: 2.4, color: '#9fb4c8' });
   } else if (zone === 'acantilados') {
     if (Math.random() < dt * 5) P.add({ type: 'gust', x: cam.ix + cam.viewW + 10, y: ry(), vx: -300 - Math.random() * 120, vy: 6, life: 2.2, color: '#e8f4f0' });
     if (Math.random() < dt * 0.8) P.add({ type: 'bird', x: cam.ix - 10, y: cam.iy + Math.random() * cam.viewH * 0.6, vx: 40 + Math.random() * 20, vy: (Math.random() - 0.5) * 6, life: 18, color: '#f0f0ea', seed: Math.random() * 9 });

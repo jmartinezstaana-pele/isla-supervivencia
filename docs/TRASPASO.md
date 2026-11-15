@@ -386,6 +386,8 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (sesión 5 de Claude Code): Sesión 5 de §4d terminada (Fase 3, parte 1).** La isla completa de 200 × 160 tiles con todos los biomas exteriores de §2.4 (poblado, monte con terrazas y cumbre nevada, campamento militar con la puerta del búnker, acantilados del viento, bahía con embarcadero y helipuerto, manglar), el trozo de la sesión 3 integrado en el suroeste, suelo pintado por trozos (60 fps), mapa M con niebla de guerra y el aterrizaje sacado del mismo mapa. Ver `docs/CHANGELOG.md`.
+>
 > **Actualización 15/11/2026 (sesión 4 de Claude Code): Sesión 4 de §4d terminada (Fase 2).** Flujo de inicio completo: título con menú, creación de personaje (10 puntos, colores con recoloreado y vista previa que gira), intro de tres pantallas, aterrizaje cenital con el mapa de la isla entera (zonas no construidas con niebla y «zona sin explorar»), resultado según la zona y restos del avión donde caes. Los cuatro atributos tienen efecto real y hay pantalla de personaje (P). Ver `docs/CHANGELOG.md`.
 >
 > **Actualización 15/11/2026 (sesión 3 de Claude Code): §4c terminada.** Estética nueva (pixel art de cómic pintado por código a 640 × 360, terreno con bordes orgánicos, acantilados con musgo, props con contorno, agua animada, cascada, luz y ambiente) y un primer espacio jugable (playa + selva) con saqueo, inventario, necesidades, combate, tres guerreros con cono de visión, jabalí, sigilo en hierba alta, día/noche y lluvia con tormenta. Ver `docs/CHANGELOG.md`.
@@ -487,7 +489,7 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 | **1. Motor y personaje** | ~~Versión lateral~~ (hecha en la sesión 1, descartada) | — |
 | **1b. Motor y personaje en cenital** ✅ (sesión 2) | Rehacer mundo de prueba, colisiones y jugador para la vista cenital: movimiento en 8 direcciones, animaciones en 4 direcciones, colisión por los pies, ordenación por profundidad (y), alturas básicas con una pared escalable y un saliente para bajar, salto con sombra por encima de un hueco, agua poco profunda y profunda, cámara en x e y | Se anda y se corre en todas las direcciones con la animación correcta (incluidas diagonales). No se atraviesan paredes ni objetos, y el personaje pasa por delante y por detrás de un árbol según su posición. Se salta un hueco, se baja un saliente y se escala una pared básica. Las pruebas de humo están adaptadas y en verde. |
 | **2. Flujo de inicio** ✅ (sesión 4) | Título (avion.jpg), creación (10 puntos, 4 atributos, colores con recoloreado y vista previa), intro breve, aterrizaje cenital con el resultado según la zona | Se puede hacer el recorrido completo de título → creación → aterrizaje → aparecer en el mundo, en la zona correspondiente. Los atributos afectan al salto y a la vida. |
-| **3. La isla** | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
+| **3. La isla** (exterior ✅ en la sesión 5; interiores en la 6) | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
 | **4. Movilidad avanzada** | Escalada entre alturas con aguante (Agilidad), lianas y escaleras, garfio a puntos de anclaje, saltos de huecos según la Agilidad, nado, daño por caída, suelo que se derrumba, ráfagas de viento, voltereta | Con Agilidad 0 se llega a la cumbre por la ruta de la cueva, y con Agilidad alta escalando. El garfio se engancha a sus anclajes. Bajar de mucha altura hace daño. Hay una persecución jugable por los acantilados. |
 | **5. Supervivencia** | Necesidades, recolección, inventario con peso, cofres, comida y agua (dulce / salada / sucia), hoguera, cama, dormir, ciclo día/noche, guardado y carga | Una noche completa se puede sobrevivir gestionando recursos. Guardar, recargar la página y continuar mantiene el estado. |
 | **6. Fabricación y mezclas** | Recetas, cocina, mezcla con pistas por Inteligencia | Cada receta consume sus materiales. Mezclar bien descubre la receta; mezclar mal aplica la penalización. Las pistas cambian con la Inteligencia. |
@@ -505,6 +507,18 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 > - **Mantener el nivel visual** de la sesión 3 (referencia: `assets-src/referencias/objetivo-estilo-selva.png`). Todo lo nuevo (biomas, interfaces, enemigos) con la misma estética de pixel art con contorno. **Revisar capturas** antes de cerrar.
 > - Trabajar en la rama `claude/vista-cenital`. Commits pequeños. Al acabar: `npm run build` y `npm test` en verde, pruebas nuevas para lo nuevo, CHANGELOG y este documento al día, e informe honesto.
 > - Cuando una pregunta de §3.6 bloquee el trabajo, aplicar la recomendación del documento, dejarlo anotado y seguir.
+
+### Estado al empezar la sesión 6
+
+- **Hecho:**
+  - Todo lo de las sesiones 4 y 5. La isla completa está en `src/world/worldMap.js` (200 × 160, trozo de la sesión 3 en el tile (4, 116); lugares clave en `WORLD_PLACES`). Props de los biomas en `src/world/worldProps.js` y `src/gfx/biomeProps.js`. 24 pruebas en verde.
+  - La **puerta del búnker** ya está en el campamento militar (`WORLD_PLACES.bunker`, prop `bunker` con `interact`): en la sesión 6 hay que hacer que con la tarjeta lleve al interior.
+  - El **bidón de la choza del jefe** está en el cofre del jefe del poblado (no hay interior de cabañas todavía).
+- **Para la sesión 6:**
+  - colocar las **bocas de la cueva** en dos terrazas distintas del monte (por ejemplo, una en la terraza 1 y otra en la 3) y hacer los interiores como mapas aparte, con transición de fundido;
+  - el terreno por trozos (`TerrainCache`) sirve tal cual para mapas interiores: basta con crear otro `TileMap` y otra caché;
+  - los enemigos lejanos no se actualizan (`ACTIVE_R` en `game.js`).
+- **Falta:** interiores, movilidad avanzada, fabricación, refugio y guardado, fauna y clima con efecto, finales y pulido.
 
 ### Estado al empezar la sesión 5
 
@@ -553,7 +567,7 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
   - Pantalla de personaje (tecla P) con los valores.
 - **Terminado cuando:** se juega el recorrido título → creación → intro → aterrizaje → juego. Dos personajes con atributos muy distintos se notan al jugar (prueba automática que mida salto, vida y detección). La vista previa refleja los colores elegidos.
 
-### Sesión 5: La isla completa, exterior (Fase 3, parte 1)
+### Sesión 5: La isla completa, exterior (Fase 3, parte 1) — HECHA
 
 - Mapa grande hecho a mano o semiprocedural de unos **200 × 160 tiles** con los biomas de §2.4:
   - playa del naufragio;

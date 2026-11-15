@@ -1,5 +1,62 @@
 # Historial de cambios
 
+## Sesión 5 — Fase 3 (parte 1): la isla completa, exterior (15/11/2026)
+
+### La isla (`src/world/worldMap.js`)
+- **200 × 160 tiles de 32 px**, semiprocedural con semilla y regiones colocadas a mano según TRASPASO §2.4. Se genera en unos 0,2 s.
+- El **trozo de la sesión 3** (playa del naufragio, selva, ruinas, río con puente y campamento de la tribu) va incrustado tal cual en el suroeste, en el tile (4, 116). Sus props, enemigos y pruebas se han desplazado a su sitio.
+- Biomas:
+  - **selva** (oeste y centro) con claros, hierba alta y jabalíes;
+  - **poblado de la tribu** (noroeste): claro de tierra, empalizada, cinco cabañas de paja, la **choza del jefe** con un cofre que guarda un **bidón de combustible**, torre de vigía, hoguera, antorchas, tótems, secaderos, calaveras y cinco guerreros más; rodeado de hierba alta;
+  - **monte** (centro-norte) con **cuatro terrazas** (niveles 1–4) separadas por paredes de 3 tiles que se escalan; una lengua de nivel 1 enlaza con la meseta de las ruinas. Bosque de pinos (con nieve arriba), roca, **cumbre nevada** con la **antena** oxidada; un **río** baja de la cumbre con **cascadas** en cada pared y se une al del trozo;
+  - **campamento militar** abandonado (este del monte): grava, cuatro tiendas de lona, torre metálica, sacos terreros, cajas militares (chatarra, raciones), bidones y la **puerta del búnker**, cerrada con lector de tarjetas (sesión 6);
+  - **acantilados del viento** (noreste): meseta de roca de nivel 2 sobre el mar con **paredes de roca en la costa**, **grietas** que se cruzan saltando, un **saliente** para bajar de un salto, agujas de roca, nidos con huevos y carteles de aviso;
+  - **bahía este**: playa en forma de bahía, **embarcadero** de madera con pilotes, **helipuerto** de hormigón con la H y la manga de viento, y una **barca naufragada** con cofre;
+  - **manglar** (sur): barro y agua turbia, mangles con raíces en arco, juncos y árboles muertos;
+  - **costa**: playas con palmeras, cocos, rocas, troncos y cangrejos alrededor de toda la isla.
+- Caminos de tierra que unen los biomas, puentes colgantes donde cruzan el río.
+- **Zonas** por tile (13, con el mar), con cartel al entrar.
+
+### Gráficos
+- **Suelo por trozos** (`TerrainCache` en `src/gfx/terrain.js`): ya no se prerenderiza el mapa entero (serían 33 millones de píxeles). Cada trozo de 128 × 128 px se pinta cuando hace falta con un margen de 32 px y coordenadas globales, así que encajan sin costuras. Se adelantan los de alrededor de la cámara y se guardan los 420 últimos.
+- **Suelos nuevos** pintados por código: nieve con ondas de viento, roca con grietas, barro con charcos y raíces, agua turbia con nenúfares, grava, hormigón con juntas y manchas, pinocha con piñas. Paredes con nieve y carámbanos en lo alto; costas altas con **cara de roca sobre el mar**; grietas con pared interior; bordes de terraza según el suelo de arriba.
+- **Props nuevos** (`src/gfx/biomeProps.js`): pino (con y sin nieve), roca nevada, antena, mangle, juncos, árbol muerto, cabaña y choza del jefe, torre de vigía (madera y metal), secadero, tienda militar, sacos terreros, caja de munición, bidones, búnker, manga de viento, barca naufragada, nido, aguja de roca y matojos.
+- **Ambiente por bioma**: ventisca con copos y rachas en la cumbre (y en lo alto del monte), **niebla** que se arrastra en el manglar, rachas de viento y gaviotas en los acantilados, gaviotas en la costa, polvo en el campamento militar, luciérnagas en el manglar de noche; gradación de color propia de cada zona.
+- **Rendimiento**: índice espacial de props (dibujo, luces, partículas e interacción solo miran lo cercano); los enemigos y animales lejanos (más de 900 px) no se actualizan. Medido en Chromium sin GPU corriendo por la isla: **60 fps** de media, p95 de 16,8 ms; cada trozo de suelo tarda unos 9 ms. La carga baja a 0,75 s.
+
+### Mapas
+- **Mapa del aterrizaje** pintado a partir del mapa real del juego (ya no hay «zonas sin explorar»): se puede aterrizar en cualquier sitio. El resultado depende del sitio: arena −10 (avión reparable), manglar −20, tribu −25 (acuden), selva −30, militar −35, acantilados −40, monte y ruinas −45, cumbre −50, mar sin daño (llegas nadando a la costa más cercana).
+- **Mapa M** (`src/ui/worldmap.js`): la misma isla con **niebla de guerra por zonas**. Empieza con la zona de llegada y cada zona se descubre al entrar (el cartel dice «¡Zona descubierta!»). Marca al jugador (flecha que parpadea según hacia dónde mira) y los restos del avión, nombres de las zonas descubiertas y «?» en las demás.
+
+### Objetos
+- Nuevos: **bidón de combustible** (choza del jefe), **huevo** (nidos de los acantilados) y **chatarra** (campamento militar), con icono y pistas de Inteligencia.
+- Examinar la antena y la puerta del búnker da una pista de lo que hará falta.
+
+### Pruebas
+- 24 pruebas de Playwright (6 nuevas en `tests/isla.spec.mjs`, y las de las sesiones 3 y 4 adaptadas a la isla grande):
+  - tamaño de la isla, biomas, suelos nuevos y 4 niveles;
+  - recorrido por los 12 biomas con su cartel y **una captura por bioma** (`tests/output/bioma-*.png`), y carrera real cruzando trozos;
+  - el mapa M empieza con la zona de llegada, se descubre al entrar y la niebla tapa lo demás;
+  - el mapa del aterrizaje da la misma zona que el juego;
+  - se escala una pared del monte de la terraza 1 a la 2;
+  - aterrizajes en cumbre, militar, manglar, acantilados y poblado (la tribu acude);
+  - rendimiento: actualizar y dibujar corriendo por la isla tarda de media unos 8 ms (límite de la prueba: 16,7 ms).
+
+### Decisiones tomadas sin consultar (menores, fáciles de cambiar)
+- **Isla semiprocedural** (forma, terrazas y suelos con ruido y semilla; lugares clave colocados a mano), con el trozo de la sesión 3 sin tocar.
+- **Las paredes solo se escalan por la cara sur** (como hasta ahora): las terrazas del monte se suben de sur a norte.
+- **El campamento de la tribu del trozo se mantiene** como puesto avanzado; el poblado grande es otro lugar.
+- **El bidón de la choza del jefe** ya está en su cofre, aunque el final del avión llega en la sesión 10.
+- **Aterrizar en arena de cualquier playa** deja el avión reparable (§2.4: «solo se puede reparar si aterrizó en arena»).
+
+### Problemas conocidos y límites
+- Las paredes de las terrazas siguen la cuadrícula: en las curvas del monte quedan escalonadas.
+- Las caras este, oeste y norte de las terrazas no se pueden escalar; la ruta de la cueva para Agilidad baja llega en la sesión 6–7.
+- Los guerreros del poblado solo patrullan en círculos; no hay vigilantes en el campamento militar (sesión 9).
+- La primera vez que se pinta un trozo puede tardar hasta unos 40 ms (aviso de JIT); al teletransportarse (atajos de prueba) se nota un pequeño tirón.
+- La ventisca y la niebla son decorativas: el frío y la visibilidad reducida llegan en la sesión 9.
+- Solo se ha probado en Chromium.
+
 ## Sesión 4 — Fase 2: flujo de inicio y atributos (15/11/2026)
 
 ### Pantallas
