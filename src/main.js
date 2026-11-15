@@ -14,6 +14,8 @@ import { Audio } from './core/audio.js';
 import { Game, ZONE_NAMES } from './game.js';
 import { tribalAtlas, boarFrames, crabFrames } from './gfx/characters.js';
 import { CharacterSheet } from './gfx/charSprite.js';
+import { maskSpeckle } from './gfx/recolor.js';
+import { display } from './core/display.js';
 import { flameFrames } from './gfx/props.js';
 import { buildIcons } from './gfx/icons.js';
 import { drawLoading } from './render/hud.js';
@@ -107,6 +109,45 @@ async function boot() {
     terrainStats() { const t = game.terrain; return { chunks: t.chunks.size, rendered: t.rendered, avgMs: t.renderMs / Math.max(1, t.rendered), maxMs: t.maxRenderMs }; },
     inventory() { return game.inventory.slots.map((s) => ({ ...s })); },
     enemies() { return game.enemies.map((e) => ({ id: e.id, x: e.x, y: e.y, state: e.state, detect: e.detect, hp: e.hp, dead: e.dead, angle: e.angle })); },
+    /** Escalas de la pantalla (sesión 6): tamaño real del canvas, S de la interfaz y K del mundo. */
+    display() { const c = document.getElementById('juego'); return { ...display, canvasW: c.width, canvasH: c.height }; },
+    /** Limpieza de la máscara del recoloreado: fracción de píxeles sueltos. */
+    speckle() { return maskSpeckle(game.sprites.playerBase); },
+    /**
+     * Comprueba cómo se ha dibujado el protagonista en el último fotograma: alto
+     * del sprite en píxeles reales y «bloques» (fracción de píxeles opacos iguales
+     * a su vecino de la derecha; el pixel art ampliado ×3 da ~0,67).
+     */
+    playerSpriteCheck() {
+      game.renderer.render(game.ctx); // solo el mundo (sin gradación ni HUD encima)
+      const p = game.player;
+      const sheet = game.sprites.player;
+      const K = display.K;
+      const spr = sheet.scaled(p.anim.name, p.anim.index, K * sheet.worldScale);
+      const cam = game.camera;
+      const dx = Math.round(K * (p.x - cam.ix));
+      const dy = Math.round(K * (p.y - p.z - cam.iy));
+      const x0 = dx - spr.ax;
+      const y0 = dy - spr.ay;
+      const w = spr.canvas.width;
+      const h = spr.canvas.height;
+      const scr = game.ctx.getImageData(x0, y0, w, h).data;
+      const own = spr.canvas.getContext('2d').getImageData(0, 0, w, h).data;
+      let same = 0;
+      let total = 0;
+      let match = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w - 1; x++) {
+          const i = (y * w + x) * 4;
+          if (own[i + 3] < 255 || own[i + 7] < 255) continue;
+          total++;
+          if (scr[i] === scr[i + 4] && scr[i + 1] === scr[i + 5] && scr[i + 2] === scr[i + 6]) same++;
+          if (Math.abs(scr[i] - own[i]) + Math.abs(scr[i + 1] - own[i + 1]) + Math.abs(scr[i + 2] - own[i + 2]) < 40) match++;
+        }
+      }
+      const [, , , fh] = sheet.frames[p.anim.name][p.anim.index];
+      return { K, frameH: fh, spriteH: h, blockiness: same / total, drawn1to1: match / total, opaque: total };
+    },
     /** Orden de dibujo del último fotograma ("jugador", "arbol", …). */
     drawOrder() {
       game.render();

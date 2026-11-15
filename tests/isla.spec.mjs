@@ -184,6 +184,9 @@ test('rendimiento: corriendo por la isla, actualizar y dibujar cabe en un fotogr
       const t0 = performance.now();
       g.update(1 / 60);
       g.render();
+      // Leer un píxel obliga a rasterizar el fotograma ya (si no, el navegador
+      // acumula el dibujo y el tiempo medido no es el real).
+      g.ctx.getImageData(0, 0, 1, 1);
       out.push(performance.now() - t0);
     }
     return out;
