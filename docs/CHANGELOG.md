@@ -1,5 +1,76 @@
 # Historial de cambios
 
+## Sesión 6 — Nitidez del protagonista y Fase 3 (parte 2): interiores (15/11/2026)
+
+### Parte 1 (obligatoria): nitidez y definición del protagonista
+Queja de Javier: *«el personaje se ve un poco raro incluso cuando eliges la vestimenta, muy poco definido y muy pixelado»*. Comparación antes y después en [`docs/capturas/nitidez-antes-despues.png`](capturas/nitidez-antes-despues.png).
+
+- **Atlas a más resolución:** se ha regenerado desde las hojas originales a ×1,5 (`ATLAS_SCALE` en `tools/extract_sprites.py`). El personaje de pie mide ahora **144 px** (antes 96) y **ya no se reduce al cargar** (antes se bajaba a 48 px con suavizado y se binarizaba).
+- **Canvas a resolución real:** el canvas mide lo mismo que la pantalla (tamaño en CSS × `devicePixelRatio`), así que ya no hay un reescalado final borroso. La interfaz sigue escrita en coordenadas lógicas de 1280 × 720 (`src/core/display.js`) y se dibuja a resolución real: el texto también sale más nítido.
+- **Mundo con escala entera:** el terreno y los props (pixel art de 640 × 360) se amplían con una escala entera sin suavizado: ×2 a 720p, ×3 a 1080p. Cuando la ventana no da un múltiplo exacto, se pinta con la escala entera de arriba y se reduce con suavizado.
+- **Personajes 1:1 en píxeles reales** (`src/gfx/charSprite.js`): cada fotograma se prepara una vez para la escala de la pantalla (Lanczos con alfa premultiplicado o ampliación entera sin suavizado) y se copia 1:1 sobre los píxeles reales, sin perder el orden de profundidad con árboles y props. A 1080p el protagonista tiene 9 veces más píxeles que antes. Se dibuja con un **contorno oscuro de 1 px** y la sombra elíptica de siempre, para que se lea sobre la hierba y la arena.
+- **Recoloreado de calidad** (`src/gfx/recolor.js`), sobre el atlas a resolución completa:
+  - no toca el contorno ni las sombras más oscuras;
+  - las partes se separan por regiones: semillas seguras, crecimiento por parecido de color con el contorno como barrera, pañuelo y camiseta por regiones conexas (no por una franja fija) y filtro de mayoría. Ya no salen manchas de piel en la camiseta, tirantes del color del pañuelo ni ojos rojos;
+  - el color elegido se aplica con una **rampa de 3 tonos** (sombra fría, tono medio y luz) que sigue la luminancia del original.
+  - Revisado con los 7 colores de pelo, los 5 de piel, los 6 de camiseta y los 6 de pantalón en las 4 direcciones.
+- **Vista previa de la creación:** sprite a resolución completa con escala entera sin suavizado (×1 a 720p, ×2 a 1080p), fondo neutro y margen arriba para que no se corte la cabeza.
+- Los **guerreros de la tribu** usan el mismo sistema (atlas grande recoloreado con la misma limpieza de máscara).
+- **Rendimiento:** el mundo se pinta directamente en el canvas cuando la escala encaja (sin buffer intermedio), sin fondo de mar ni capa de agua si no se ven, y la luz de día con un solo relleno multiplicado. En esta máquina de pruebas (Chromium **sin GPU**), forzando el rasterizado en cada fotograma: unos **11 ms** por fotograma a 1280 × 720 y unos **22 ms** a 1920 × 1080. Con aceleración por GPU (lo normal en un PC) sobra margen; en un ordenador sin GPU a 1080p podría bajar de 60 fps.
+
+### Parte 2: interiores y subsuelo
+- **Niveles:** la isla y cada interior tienen su propio mapa, caché de terreno, props y entidades. Se cambia de nivel con un **fundido a negro** de medio segundo, al estilo Pokémon. Los interiores se crean la primera vez que se entra y **conservan su estado** (cofres abiertos, objetos cogidos).
+- **Puertas:** se entra **andando hacia la puerta** (bocas de cueva y cabañas) o con **E**. Se sale **andando hacia abajo** por la salida (luz de la puerta o escalera). Al salir apareces delante de la puerta por la que corresponde.
+- **Cuevas del monte** (48 × 32 tiles): dos bocas excavadas en paredes del monte, una en la **terraza 1** y otra en la **terraza 3**. Por dentro se va de una a otra sin escalar: es la **ruta alternativa a la escalada**. Tienen:
+  - túneles tallados con semilla y paredes de roca con bordes orgánicos;
+  - **oscuridad total**: sin antorcha casi no se ve, y unas setas luminosas marcan el camino;
+  - la **guarida del depredador** (lecho de paja y huesos);
+  - el **esqueleto de un soldado** con la **tarjeta de acceso** y una **nota**;
+  - un **bidón de combustible**, un cofre oxidado y una charca de agua turbia.
+- **Búnker** (32 × 22) bajo el campamento militar. La puerta **solo se abre con la tarjeta**. Dentro hay un vestíbulo con la escalera de salida, luces rojas de emergencia y cinco salas:
+  - radio, con la **radio rota** y el registro de radio;
+  - sala de mapas, con la orden de evacuación;
+  - almacén, con **cables** y un **bidón**;
+  - dormitorio, con literas, taquillas y un diario;
+  - sala de energía, con la **batería**.
+- **Cabañas del poblado:** las cinco cabañas y la **choza del jefe** tienen interior: tierra apisonada, hogar encendido, esteras, vasijas, secaderos y algún cofre. El **cofre del jefe con el bidón** ya no está fuera: está dentro de su choza, junto a lanzas, escudo, tótem y una calavera.
+- **Suelos nuevos:** cueva, muro y vacío. Los muros se ven desde arriba con su cara frontal según el interior: roca con estratos, bloques de hormigón con franja de aviso, o barro y palos. El suelo pegado a un muro recibe su sombra.
+- **Luz:** la cueva es negra salvo antorchas, setas y la luz de las salidas. El búnker queda en penumbra roja. Las cabañas toman la luz de fuera, atenuada, más la del hogar. Dentro no llueve.
+- **Notas legibles** (panel de papel; el mundo se para; se cierra con E, Esc o clic): nota del cabo Méndez, registro de radio, orden de evacuación y diario de un soldado. Dan pistas de las tres huidas. Se apuntan como encontradas para el diario de la sesión 10.
+- **Objetos nuevos** con icono: tarjeta de acceso, radio rota, batería y cables.
+- **Morir dentro** de un interior te devuelve a la playa de la isla. El **mapa M** muestra siempre la isla, y dentro de un interior marca la puerta por la que entraste.
+
+### Pruebas
+- 37 pruebas de Playwright. Las nuevas:
+  - `tests/nitidez.spec.mjs` (8 pruebas, a 1920 × 1080 y a 1280 × 720):
+    - el canvas tiene la resolución real y el mundo, escala entera;
+    - el sprite del protagonista se dibuja 1:1 sin bloques sobre arena y sobre hierba;
+    - la vista previa usa escala entera sin cortar la cabeza;
+    - la máscara del recoloreado está limpia;
+    - rendimiento a 1080p.
+  - `tests/interiores.spec.mjs` (5 pruebas):
+    - la cueva conecta la terraza 1 y la 3 en los dos sentidos, andando y con fundido;
+    - oscuridad sin antorcha y luz con ella; esqueleto, tarjeta, nota y bidón;
+    - el búnker está cerrado sin tarjeta y se abre con ella; se recogen la radio, la batería, los cables y el bidón, y se lee una nota;
+    - se entra y se sale de las cabañas, el cofre del jefe está en su choza y el estado se conserva;
+    - morir dentro devuelve a la isla, y el mapa M funciona desde dentro.
+- La prueba de rendimiento de la isla obliga ahora a rasterizar cada fotograma, así que mide el tiempo real.
+- Capturas en `tests/output/nitidez/` y `tests/output/interiores/`. `node tools/capturas-nitidez.mjs <carpeta>` repite las capturas de comparación.
+
+### Decisiones tomadas sin consultar (menores, fáciles de cambiar)
+- **Atlas a 144 px** (paso 7 del añadido, «si con 96 px no basta»): con 96 px, a 1080p el personaje habría tenido que ampliarse ×1,5.
+- **Se puede entrar en la cueva sin antorcha**, aunque casi no se ve; el juego avisa.
+- **Dentro de los interiores no se descubren zonas** del mapa M (siguen siendo 12).
+- **Suelo de tierra apisonada** en las cabañas.
+
+### Problemas conocidos y límites
+- La **guarida está vacía**: el depredador llega en la sesión 9.
+- Las animaciones que no son de andar ni correr (`up`, `hurt`, `jump`, `crouch`, `roll`…) vienen de hojas más pequeñas y su recoloreado es peor: alguna zona de la camiseta queda del color original. Además, las de agacharse, rodar y esquivar se amplían desde hojas pequeñas y se ven algo blandas.
+- Sin GPU, a 1920 × 1080 un fotograma tarda unos 22 ms (ver «Rendimiento»).
+- Las salas del búnker y de las cabañas son rectangulares; las paredes de la cueva tienen bordes orgánicos en el dibujo, pero la colisión sigue los tiles.
+- La radio, la batería y los cables todavía no se combinan: la fabricación llega en la sesión 8 y el final de la radio en la 10.
+- Solo se ha probado en Chromium.
+
 ## Sesión 5 — Fase 3 (parte 1): la isla completa, exterior (15/11/2026)
 
 ### La isla (`src/world/worldMap.js`)

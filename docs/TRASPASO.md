@@ -351,11 +351,12 @@ La pantalla final muestra estadísticas: días sobrevividos, eliminaciones, elim
 
 ### 2.6 Sprites y recoloreado [RECOMENDACIÓN]
 
+- **Actualización 15/11/2026 (sesión 6, nitidez):** el atlas se ha regenerado a **×1,5** (`ATLAS_SCALE` en `tools/extract_sprites.py`): 2048 × 591, con el personaje de pie de **144 px** de alto, que se dibuja a **1/3** (48 px de mundo) y a resolución real de pantalla (`src/gfx/charSprite.js`). Los nombres y el número de fotogramas no cambian.
 - **Actualización 15/11/2026 (vista cenital):** el atlas se ha regenerado con las **4 direcciones** de andar y correr, sacadas de las hojas de Javier. Animaciones: `walk_down`, `walk_up`, `walk_left` y `walk` (= derecha), 6 fotogramas cada una; `run_down`, `run_up`, `run_left` y `run` (= derecha), 8 fotogramas cada una. Se mantienen los nombres `walk` y `run` para no romper el código existente. Atlas: 1024 × 481, 90 fotogramas.
 - Las demás animaciones (`jump`, `crouch`, `roll`, `dodge`, `hurt`, `pick`, `reach`, `up`, `idle`) **solo existen de lado**, mirando a la derecha. Para arriba y abajo hay que usar un sustituto: por ejemplo, la animación lateral más cercana o el fotograma de andar con un efecto (sombra, escala o parpadeo). **[PENDIENTE]** Preguntar a Javier si puede conseguir esas animaciones en 4 direcciones.
 - Los fotogramas laterales **miran a la derecha**; para ir a la izquierda se voltean al dibujar (salvo `walk_left` y `run_left`, que ya existen).
 - **Ancla abajo en el centro** (los pies).
-- Altura de pie en el atlas: **96 px**. Pensado para dibujarse a **0,5 (48 px)**. En vista cenital, la caja de colisión debe cubrir **solo los pies** (por ejemplo, unos 18 × 10 px), con ordenación por la y de los pies para que el personaje pase por delante o por detrás de árboles y objetos.
+- Altura de pie en el atlas: **144 px** desde la sesión 6 (antes 96). Se dibuja a **1/3 (48 px de mundo)**, a resolución real. En vista cenital, la caja de colisión debe cubrir **solo los pies** (por ejemplo, unos 18 × 10 px), con ordenación por la y de los pies para que el personaje pase por delante o por detrás de árboles y objetos.
 - **Recoloreado en tiempo de ejecución**, clasificando los píxeles por HSV:
 
 | Píxeles (HSV) | Se convierten en |
@@ -386,6 +387,8 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (sesión 6 de Claude Code): Sesión 6 de §4d terminada.** Primero, el añadido obligatorio: el protagonista ya se ve **nítido** (atlas regenerado a 144 px sin reducir, canvas a resolución real, mundo con escala entera, personajes dibujados 1:1 con contorno, recoloreado por regiones sin manchas y vista previa de la creación a escala entera; comparación en `docs/capturas/nitidez-antes-despues.png`). Después, los **interiores** con fundido: **cuevas del monte** (bocas en las terrazas 1 y 3, oscuridad total, guarida, esqueleto con tarjeta y nota, bidón), **búnker** que se abre con la tarjeta (radio rota, batería, cables, bidón y notas) y **cabañas** del poblado con la **choza del jefe** y su bidón. Ver `docs/CHANGELOG.md`.
+>
 > **Actualización 15/11/2026 (sesión 5 de Claude Code): Sesión 5 de §4d terminada (Fase 3, parte 1).** La isla completa de 200 × 160 tiles con todos los biomas exteriores de §2.4 (poblado, monte con terrazas y cumbre nevada, campamento militar con la puerta del búnker, acantilados del viento, bahía con embarcadero y helipuerto, manglar), el trozo de la sesión 3 integrado en el suroeste, suelo pintado por trozos (60 fps), mapa M con niebla de guerra y el aterrizaje sacado del mismo mapa. Ver `docs/CHANGELOG.md`.
 >
 > **Actualización 15/11/2026 (sesión 4 de Claude Code): Sesión 4 de §4d terminada (Fase 2).** Flujo de inicio completo: título con menú, creación de personaje (10 puntos, colores con recoloreado y vista previa que gira), intro de tres pantallas, aterrizaje cenital con el mapa de la isla entera (zonas no construidas con niebla y «zona sin explorar»), resultado según la zona y restos del avión donde caes. Los cuatro atributos tienen efecto real y hay pantalla de personaje (P). Ver `docs/CHANGELOG.md`.
@@ -455,7 +458,7 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 ### 3.5 Aspectos que necesitan revisión
 
 1. **Coherencia de estilo:** `idle` (de `1. Quieto.png`) se ve más realista y de frente que el resto. Puede chocar en pantalla; quizá convenga usar un fotograma de `walk` como reposo.
-2. **Calidad del recorte:** se escalan al alza las hojas pequeñas (Agacharse, Rodar, Esquivar: × 1,5), así que se verán algo borrosas. El ruido de compresión JPEG del fondo original puede dejar algún píxel de halo.
+2. **Calidad del recorte:** se escalan al alza las hojas pequeñas (Agacharse, Rodar, Esquivar: × 1,5, y desde la sesión 6 × 2,25), así que se ven algo blandas. Su recoloreado, y el de `up` y `hurt`, es peor que el de andar y correr. El ruido de compresión JPEG del fondo original puede dejar algún píxel de halo.
 3. **Escalas entre animaciones:** se ajustaron a ojo (`scales` en el script). Hay que revisarlas en el juego para que el personaje no "cambie de tamaño" entre andar, correr y saltar.
 4. **Orientación de `jump`:** casi todos los fotogramas miran a la derecha, pero conviene confirmarlo fotograma a fotograma.
 5. **Texto incrustado** en `avion.jpg` y `paisaje.jpg` (ver §1.6).
@@ -489,7 +492,7 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 | **1. Motor y personaje** | ~~Versión lateral~~ (hecha en la sesión 1, descartada) | — |
 | **1b. Motor y personaje en cenital** ✅ (sesión 2) | Rehacer mundo de prueba, colisiones y jugador para la vista cenital: movimiento en 8 direcciones, animaciones en 4 direcciones, colisión por los pies, ordenación por profundidad (y), alturas básicas con una pared escalable y un saliente para bajar, salto con sombra por encima de un hueco, agua poco profunda y profunda, cámara en x e y | Se anda y se corre en todas las direcciones con la animación correcta (incluidas diagonales). No se atraviesan paredes ni objetos, y el personaje pasa por delante y por detrás de un árbol según su posición. Se salta un hueco, se baja un saliente y se escala una pared básica. Las pruebas de humo están adaptadas y en verde. |
 | **2. Flujo de inicio** ✅ (sesión 4) | Título (avion.jpg), creación (10 puntos, 4 atributos, colores con recoloreado y vista previa), intro breve, aterrizaje cenital con el resultado según la zona | Se puede hacer el recorrido completo de título → creación → aterrizaje → aparecer en el mundo, en la zona correspondiente. Los atributos afectan al salto y a la vida. |
-| **3. La isla** (exterior ✅ en la sesión 5; interiores en la 6) | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
+| **3. La isla** ✅ (exterior en la sesión 5; interiores en la 6) | Generación con semilla de todas las zonas de §2.4: paredes escalables, cueva, poblado, campamento y búnker, acantilados, bahía. Mapa cenital con niebla de guerra | Se puede recorrer la isla de punta a punta. Cada zona tiene un cartel de descubrimiento. La cueva conecta ambos lados del monte. |
 | **4. Movilidad avanzada** | Escalada entre alturas con aguante (Agilidad), lianas y escaleras, garfio a puntos de anclaje, saltos de huecos según la Agilidad, nado, daño por caída, suelo que se derrumba, ráfagas de viento, voltereta | Con Agilidad 0 se llega a la cumbre por la ruta de la cueva, y con Agilidad alta escalando. El garfio se engancha a sus anclajes. Bajar de mucha altura hace daño. Hay una persecución jugable por los acantilados. |
 | **5. Supervivencia** | Necesidades, recolección, inventario con peso, cofres, comida y agua (dulce / salada / sucia), hoguera, cama, dormir, ciclo día/noche, guardado y carga | Una noche completa se puede sobrevivir gestionando recursos. Guardar, recargar la página y continuar mantiene el estado. |
 | **6. Fabricación y mezclas** | Recetas, cocina, mezcla con pistas por Inteligencia | Cada receta consume sus materiales. Mezclar bien descubre la receta; mezclar mal aplica la penalización. Las pistas cambian con la Inteligencia. |
@@ -507,6 +510,19 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 > - **Mantener el nivel visual** de la sesión 3 (referencia: `assets-src/referencias/objetivo-estilo-selva.png`). Todo lo nuevo (biomas, interfaces, enemigos) con la misma estética de pixel art con contorno. **Revisar capturas** antes de cerrar.
 > - Trabajar en la rama `claude/vista-cenital`. Commits pequeños. Al acabar: `npm run build` y `npm test` en verde, pruebas nuevas para lo nuevo, CHANGELOG y este documento al día, e informe honesto.
 > - Cuando una pregunta de §3.6 bloquee el trabajo, aplicar la recomendación del documento, dejarlo anotado y seguir.
+
+### Estado al empezar la sesión 7
+
+- **Hecho:**
+  - Todo lo de la sesión 6:
+    - nitidez del protagonista: atlas de 144 px, canvas real, escala entera K del mundo (`src/core/display.js`) y sprites 1:1 (`src/gfx/charSprite.js`);
+    - interiores: `src/world/interiors.js`, cambio de nivel en `Game.changeLevel`, puertas en `worldProps.js` con `door: { to, entry, trigger, out, needs }`.
+  - 37 pruebas en verde.
+  - Las bocas de la cueva están en `WORLD_PLACES.cueva`: terraza 1 en (88, 93) y terraza 3 en (92, 68). La guarida del depredador está en (12,5; 6) de la cueva, vacía.
+- **Para la sesión 7:**
+  - la ruta de la cueva ya permite subir dos terrazas sin escalar; falta comprobar que con Agilidad 0 se llega a la cumbre (de la terraza 3 a la 4 hay que escalar o poner otra ruta);
+  - un interior nuevo se añade con una función en `interiors.js` y una puerta en `worldProps.js`.
+- **Falta:** movilidad avanzada, fabricación, refugio y guardado, fauna y clima con efecto, finales y pulido.
 
 ### Estado al empezar la sesión 6
 
@@ -584,7 +600,7 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 - Rendimiento: dibujar solo lo visible y prerenderizar por trozos (chunks).
 - **Terminado cuando:** se recorre la isla entera sin cargas ni errores. Cada bioma tiene una captura revisada contra la referencia. El mapa M se va descubriendo. Se mantienen los 60 fps.
 
-### Sesión 6: Interiores y subsuelo (Fase 3, parte 2)
+### Sesión 6: Interiores y subsuelo (Fase 3, parte 2) — HECHA
 
 - **Cuevas del monte** (mapa aparte, oscuridad total que exige antorcha): ruta alternativa a la escalada, guarida del depredador, bidón, tarjeta de acceso, esqueleto con nota.
 - **Búnker** bajo el campamento: puerta que se abre con tarjeta y salas con radio rota, batería, cables, bidón y notas.
@@ -592,7 +608,9 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 - **Transiciones** de entrada y salida al estilo Pokémon, con fundido.
 - **Terminado cuando:** se puede entrar y salir de cueva, búnker y cabañas. La cueva conecta dos alturas del monte. La tarjeta abre el búnker. Hay pruebas automáticas de ello.
 
-#### Sesión 6 — AÑADIDO OBLIGATORIO: nitidez y definición del protagonista
+#### Sesión 6 — AÑADIDO OBLIGATORIO: nitidez y definición del protagonista — HECHO
+
+> **Hecho en la sesión 6.** Se aplicaron los pasos 1–7 (incluido el 7: atlas a 144 px). Capturas a 1920 × 1080 y 1280 × 720 en `tests/output/nitidez/` y comparación antes/después en `docs/capturas/nitidez-antes-despues.png`. Rendimiento sin GPU: unos 11 ms por fotograma a 720p y 22 ms a 1080p; con GPU sobra margen. Detalle en `docs/CHANGELOG.md`.
 
 > **[ACORDADO-USUARIO] (15/11/2026)** Javier: *"el personaje se ve un poco raro incluso cuando eliges la vestimenta, muy poco definido y muy pixelado"*. Se resuelve en esta sesión, **antes** de las cuevas, el búnker y las cabañas.
 
