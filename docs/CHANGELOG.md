@@ -1,5 +1,107 @@
 # Historial de cambios
 
+## Sesión 3 — §4c: estética de verdad y primer espacio jugable (15/11/2026)
+
+Javier rechazó el aspecto de la sesión 2. El objetivo visual es `assets-src/referencias/objetivo-estilo-selva.png`.
+
+### Estética
+- **Mundo a baja resolución:** se pinta a 640 × 360 y se escala ×2 sin suavizado.
+  - El atlas del protagonista se reduce a la mitad al cargar, para que sea pixel art nítido a la misma escala que el mundo.
+  - El HUD se dibuja a 1280 × 720.
+- **Terreno pintado por código** y prerenderizado al cargar:
+  - bordes orgánicos entre selva, hierba, arena, tierra y agua (pertenencia interpolada entre tiles más ruido), con contorno de cómic;
+  - arena mojada en la orilla y barro en las riberas;
+  - agua por bandas de profundidad;
+  - losas con musgo en las ruinas;
+  - puente colgante con tablones y cuerdas;
+  - detalles en el suelo: hojas, matas, flores, conchas y piedras.
+- **Acantilados:** bloques de piedra irregulares con musgo, lianas colgando, borde de hierba que sobresale y sombra al pie.
+- **Props** con sombreado por tonos y contorno, ordenados por profundidad y con sombra:
+  - vegetación: palmeras, árboles de selva (dos paletas), helechos, hojas grandes, bromelias con flores rojas y moradas, arbustos (con bayas), hierba alta, rocas con musgo, troncos caídos;
+  - madera y piedra: cajas, barriles, cofres (abiertos y cerrados), carteles (flecha y calavera), tótems, pilares, muros en ruinas y un templo escalonado;
+  - campamento: tiendas, empalizada, hoguera y antorchas con llamas animadas;
+  - restos de la avioneta A-07 con humo.
+  - Las copas se vuelven semitransparentes si pasas por detrás y la vegetación se balancea.
+- **Agua viva:**
+  - espuma que sube y baja por la orilla y olas que llegan a la playa;
+  - destellos en el mar;
+  - corriente en el río;
+  - **cascada** con espuma y bruma.
+- **Ambiente:**
+  - sombras de nubes que cruzan el suelo;
+  - hojas que caen y motas de luz en la selva, luciérnagas de noche;
+  - polvo al correr, chispas en los fuegos;
+  - gradación de color por zona y viñeta.
+- **Iluminación:** capa de luz multiplicativa con luces en anillos (hoguera, antorchas, antorcha del jugador y un pequeño halo propio).
+- **Ilustraciones de Javier:** `selva.jpg` en la pantalla de carga y en el cartel de la selva; `avion.jpg` en el título.
+
+### Espacio jugable (mapa a mano, 84 × 36 tiles)
+- **Playa del naufragio:**
+  - restos del avión con botín inicial (cuchillo, 2 botellas de agua, ración, venda, tela);
+  - maleta, barril y caja;
+  - palmeras con cocos;
+  - cangrejos.
+- **Selva:**
+  - meseta con acantilado escalable y ruinas (templo, pilares, tótem, cofre con un ídolo);
+  - río con cascada y **puente colgante**;
+  - jabalí;
+  - dos zonas de hierba alta;
+  - **campamento de la tribu** con empalizada, hoguera, tiendas, antorchas, dos cofres, caja y barril.
+
+### Mecánicas
+- **Buscar y saquear:**
+  - **E** abre contenedores, recoge objetos del suelo y bayas y bebe del río;
+  - **mochila** de 18 huecos (I / Tab) con 18 objetos con nombre, icono y descripción;
+  - comer, beber y curarse (clic, Enter, Q, R, H).
+- **Necesidades:** hambre, sed y energía bajan con el tiempo. A cero, quitan vida. Con poca energía no se puede correr.
+- **Combate:**
+  - ataque hacia el ratón (clic) con tajo visible;
+  - con cuchillo hace 20 de daño; a puños, 6; doble si el enemigo no te ve;
+  - pausa breve al golpear, retroceso, temblor de pantalla y números de daño.
+- **Vida, muerte y reaparición** en la playa (con 60 de vida; conservas la mochila).
+- **Tribu (3 guerreros):**
+  - patrullan con **cono de visión dibujado**, recortado por la línea de visión;
+  - tienen un medidor de detección y sospechan (**?**) al verte de lejos o al oír ruido (correr, atacar, chapotear);
+  - investigan, persiguen (**!**), atacan con aviso y avisan a sus compañeros;
+  - buscan donde te vieron y abandonan si te pierdes o te alejas.
+  - Reutilizan el sprite del protagonista recoloreado (piel, pintura, taparrabos, cinta), con lanza y plumas.
+- **Jabalí:** te ve, rasca el suelo, embiste en línea recta y se aturde si choca.
+- **Cangrejos:** inofensivos, huyen y dan carne.
+- **Sigilo:**
+  - agachado en la hierba alta estás oculto;
+  - por la espalda de un enemigo desprevenido, **F** lo elimina de un golpe;
+  - de noche ven menos salvo que lleves antorcha o estés junto a un fuego.
+- **Día y noche:** reloj (1 h = 25 s), atardecer naranja y noche oscura con radio de visión reducido.
+- **Lluvia:**
+  - llega sola cada pocos minutos, con gotas, salpicaduras, ondas en el agua, charcos, cielo encapotado y sonido;
+  - **relámpagos y truenos** cuando arrecia;
+  - los enemigos ven un 35 % menos y oyen un 60 % menos.
+- **HUD:**
+  - barras con iconos, reloj con sol, luna y lluvia, cartel de zona y aviso de interacción;
+  - registro de objetos, mensajes, «Oculto» y punto de mira;
+  - mochila, ayuda de controles (F1), muerte y pausa.
+- **Sonido sintetizado** con WebAudio: golpes, recoger, alerta, comer, beber, jabalí, lluvia y trueno.
+- **Pruebas:** 12 pruebas de Playwright. Cubren carga y título, movimiento, colisión y profundidad, escalada, saqueo, recoger y comer, detección y escondite, daño y eliminación silenciosa, jabalí, lluvia y noche, muerte, y las capturas.
+- **Rendimiento:** 5–8 ms por fotograma en Chromium sin GPU.
+
+### Decisiones tomadas sin consultar (menores, fáciles de cambiar)
+- **Recolor del protagonista para la tribu:** los guerreros lo usan. Era una recomendación de §2.6 y la pregunta 9 de §3.6 sigue abierta.
+- **Muerte:** reapareces en la playa y conservas todo (versión sencilla de §2.4).
+- **Atajos de prueba:** F5 adelanta 2 horas y F6 activa o quita la lluvia.
+- **Ídolo de jade:** el cofre de las ruinas guarda un «Ídolo de jade» como tesoro sin uso todavía (gancho para los secretos).
+- **Hora de inicio:** la partida empieza a las 16:00 para que anochezca pronto.
+
+### Problemas conocidos y límites
+- La escala de los sprites de salto, agacharse, escalar y atacar sigue sin igualar a la de andar (TRASPASO §3.5).
+- Atacar, agacharse y recoger mirando arriba o abajo usan sustitutos.
+- Los enemigos no rodean bien obstáculos grandes: tienen una evasión simple.
+- Al morir no se pierde nada.
+- La carne cruda no se puede cocinar: aún no hay fabricación.
+- La energía no se recupera durmiendo: aún no hay refugio.
+- La lluvia no apaga la antorcha.
+- Solo se ha probado en Chromium.
+
+
 ## Sesión 2 — Fase 1b: conversión a vista cenital (15/11/2026)
 
 Javier pidió vista cenital con movimiento en todas las direcciones, como en Pokémon (TRASPASO §2.1). Se rehízo el motor de la Fase 1 manteniendo la infraestructura.

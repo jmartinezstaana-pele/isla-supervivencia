@@ -386,6 +386,8 @@ Las hojas de Javier están numeradas: 5 Girar, 6 Esquivar, 7 Rodar, 8 Agacharse,
 
 ### 3.1 Qué se llegó a desarrollar
 
+> **Actualización 15/11/2026 (sesión 3 de Claude Code): §4c terminada.** Estética nueva (pixel art de cómic pintado por código a 640 × 360, terreno con bordes orgánicos, acantilados con musgo, props con contorno, agua animada, cascada, luz y ambiente) y un primer espacio jugable (playa + selva) con saqueo, inventario, necesidades, combate, tres guerreros con cono de visión, jabalí, sigilo en hierba alta, día/noche y lluvia con tormenta. Ver `docs/CHANGELOG.md`.
+>
 > **Actualización 15/11/2026 (sesión 2 de Claude Code): Fase 1b terminada.** El motor ya es cenital: movimiento en 8 direcciones con animaciones en 4 direcciones, colisión por los pies con corrección de esquinas, ordenación por profundidad, alturas con pared escalable (aguante), saliente, salto de grietas con sombra, agua poco profunda y profunda, y cámara en x e y. La física lateral se ha retirado. Detalle en `docs/CHANGELOG.md`.
 >
 > **Actualización 15/11/2026 (después de la sesión 1): cambio a vista cenital.** Javier ha probado la versión lateral y la rechaza: quiere moverse en todas las direcciones, como en Pokémon (§2.1). De la sesión 1:
@@ -468,7 +470,7 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 6. Al morir: ¿reaparecer en el refugio (lo recomendado) o empezar de cero?
 7. El color de "pelo": ¿se aplica al pañuelo?
 8. ¿Hay más hojas de animación (números 1–4, 10, 11), por ejemplo de atacar, escalar o nadar?
-9. ¿Se acepta que los guerreros de la tribu reutilicen el sprite del protagonista recoloreado?
+9. ¿Se acepta que los guerreros de la tribu reutilicen el sprite del protagonista recoloreado? (De momento, en la sesión 3, se ha hecho así, con lanza y plumas dibujadas encima.)
 
 ---
 
@@ -493,7 +495,9 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 
 ---
 
-## 4c. SIGUIENTE TAREA para Claude Code (sesión 3): estética de verdad + primer espacio jugable
+## 4c. Tarea de la sesión 3: estética de verdad + primer espacio jugable — HECHA
+
+> **Hecha en la sesión 3** (detalle y problemas conocidos en `docs/CHANGELOG.md`). La siguiente tarea es la **Fase 2** de §4 (flujo de inicio: título, creación de personaje, aterrizaje), que ahora encaja con el mapa hecho a mano.
 
 > **Esta sección manda sobre todo lo anterior del plan.** Instrucción expresa de Javier ([ACORDADO-USUARIO], 15/11/2026): *"que no corte hasta que no tenga un espacio jugable para batallar, buscar, o con al menos un par de paisajes y eventos como lluvia"*.
 >
