@@ -15,15 +15,18 @@ import { Lighting } from './render/lighting.js';
 import { drawHud, drawImpact } from './render/hud.js';
 import { DEFAULT_ATTRS } from './data/attributes.js';
 import { DEFAULT_COLORS, recolorAtlas, partAverage } from './gfx/recolor.js';
-import { LANDING_RESULTS, OX as LAND_OX, OY as LAND_OY } from './world/landingMap.js';
+import { LANDING_RESULTS } from './world/landingMap.js';
 import { TitleScreen } from './ui/title.js';
 import { CreationScreen } from './ui/creation.js';
 import { IntroScreen } from './ui/intro.js';
 import { LandingScreen } from './ui/landing.js';
-import { buildIsland, zoneAt, PLACES, shoreX } from './world/islandMap.js';
+import { shoreX } from './world/islandMap.js';
+import { buildWorld, worldZoneAt, ZONES, WORLD_PLACES } from './world/worldMap.js';
+import { buildWorldProps } from './world/worldProps.js';
+import { PropIndex } from './world/propIndex.js';
 import { PropGrid, nudgeFree } from './world/collision.js';
 import { buildProps, initialPickups, makeFlotsam } from './world/props.js';
-import { renderTerrain } from './gfx/terrain.js';
+import { TerrainCache } from './gfx/terrain.js';
 import { G } from './world/tiles.js';
 import { Clock } from './systems/clock.js';
 import { Weather } from './systems/weather.js';
@@ -33,12 +36,9 @@ import { ITEMS } from './data/items.js';
 
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
-export const ZONE_NAMES = {
-  playa: ['Playa del naufragio', 'Peligro bajo'],
-  selva: ['La selva', 'Peligro medio · jabalíes'],
-  ruinas: ['Ruinas antiguas', 'Algo brilla entre las piedras'],
-  campamento: ['Campamento de la tribu', 'Peligro alto · no te dejes ver'],
-};
+export const ZONE_NAMES = ZONES;
+/** Distancia (px) a la que los enemigos y animales siguen activos. */
+const ACTIVE_R = 900;
 
 export class Game {
   constructor({ ctx, input, sprites, images, audio }) {
@@ -49,8 +49,8 @@ export class Game {
     this.audio = audio;
     this.screen = 'title';
     this.rng = Math.random;
-    this.map = buildIsland();
-    this.terrain = renderTerrain(this.map);
+    this.map = buildWorld();
+    this.terrain = new TerrainCache(this.map);
     this.camera = new Camera(this.map.pixelWidth, this.map.pixelHeight);
     this.renderer = new Renderer(this);
     this.water = new WaterLayer(this.map, this.terrain);
@@ -59,10 +59,9 @@ export class Game {
     this.lighting = new Lighting();
     this.debug = false;
     this.fps = 60;
-    this.waterfall = null;
+    this.waterfalls = this.findWaterfalls();
     this.character = { attrs: { ...DEFAULT_ATTRS }, colors: { ...DEFAULT_COLORS } };
     this.resetWorld();
-    this.waterfall = this.findWaterfall();
     this.screens = {
       title: new TitleScreen(this),
       create: new CreationScreen(this),
@@ -77,9 +76,24 @@ export class Game {
 
   /** Deja la isla como al principio: props, botín, enemigos, reloj, clima y jugador nuevo. */
   resetWorld() {
-    this.world = { map: this.map, grid: new PropGrid(this.map.pixelWidth, this.map.pixelHeight), props: buildProps(this.map) };
-    for (const p of this.world.props) if (p.solid) this.world.grid.add(p);
-    this.pickups = initialPickups(this.map, this.world.props);
+    // Props del trozo de la sesión 3 (en sus coordenadas, desplazados a su sitio) y del resto de la isla.
+    const pc = this.map.piece;
+    const ox = pc.x * TILE;
+    const oy = pc.y * TILE;
+    const pieceProps = buildProps(pc.map);
+    const piecePickups = initialPickups(pc.map, pieceProps);
+    for (const pr of pieceProps) {
+      pr.x += ox; pr.y += oy;
+      pr.col = { ...pr.col, x: pr.col.x + ox, y: pr.col.y + oy };
+    }
+    for (const pk of piecePickups) { pk.x += ox; pk.y += oy; }
+    const rest = buildWorldProps(this.map, pieceProps);
+    const props = [...pieceProps, ...rest.props];
+    const W = this.map.pixelWidth;
+    const H = this.map.pixelHeight;
+    this.world = { map: this.map, grid: new PropGrid(W, H), props, index: new PropIndex(W, H), lights: [] };
+    for (const p of props) this.indexProp(p);
+    this.pickups = [...piecePickups, ...rest.pickups];
     this.bodies = [];
     this.inventory = new Inventory();
     this.player = new Player(this.sprites.playerBase.frames);
@@ -91,8 +105,10 @@ export class Game {
     this.particles = new Particles();
     this.clock = new Clock(16);
     this.weather = new Weather(this.map);
-    this.zone = zoneAt(this.player.x, this.player.y);
+    this.zone = this.zoneAt(this.player.x, this.player.y);
     this.banner = { zone: this.zone, age: 0 };
+    this.discovered = new Set([this.zone, 'mar']);
+    this.mapOpen = false;
     this.time = 0;
     this.paused = false;
     this.invOpen = false;
@@ -149,22 +165,21 @@ export class Game {
    * `result`: { zone, x, y, forced } con x, y en casillas de la isla grande.
    */
   landAt(result) {
-    const R = LANDING_RESULTS[result.zone];
+    const key = result.result || result.zone;
+    const R = LANDING_RESULTS[key] || LANDING_RESULTS.selva;
     const p = this.player;
     const wreck = this.world.props.find((pr) => pr.kind === 'avion');
     const map = this.map;
-    let tx = result.x - LAND_OX;
-    let ty = result.y - LAND_OY;
-    const inside = tx >= 0 && ty >= 0 && tx < map.width && ty < map.height;
+    const tx = Math.max(1, Math.min(map.width - 2, result.x));
+    const ty = Math.max(1, Math.min(map.height - 2, result.y));
     let place;
-    if (result.zone === 'mar') {
-      // El avión se hunde: la corriente te deja nadando cerca de la costa y arrastra los restos a la playa.
-      ty = Math.max(3, Math.min(map.height - 4, inside ? ty : ty < 0 ? 4 : map.height - 5));
-      const shore = shoreX(ty);
-      const sx = inside ? Math.min(tx, shore - 4.5) : shore - 4.5;
-      p.placeAt(sx * TILE, (Math.floor(ty) + 0.6) * TILE, 0);
+    if (key === 'mar') {
+      // El avión se hunde: llegas nadando a la costa más cercana y el mar arrastra los restos a la orilla.
+      const coast = this.nearestCoast(tx, ty);
+      p.placeAt((coast.water[0] + 0.5) * TILE, (coast.water[1] + 0.6) * TILE, 0);
       this.removeProp(wreck);
-      const fl = makeFlotsam((shore + 2) * TILE, (Math.floor(ty) + 0.8) * TILE, wreck.loot);
+      const fl = makeFlotsam((coast.land[0] + 0.5) * TILE, (coast.land[1] + 0.8) * TILE, wreck.loot);
+      fl.level = map.levelAt(coast.land[0], coast.land[1]);
       this.addProp(fl);
       place = { x: fl.x, y: fl.y };
     } else {
@@ -182,18 +197,44 @@ export class Game {
     }
     p.hp = Math.max(1, p.maxHp - R.dano);
     p.facing = 'down';
-    this.plane = { zone: result.zone, estado: R.avion };
+    this.plane = { zone: key, estado: R.avion, lugar: result.zone };
     this.camera.snap(p);
-    this.zone = zoneAt(p.x, p.y);
+    this.zone = this.zoneAt(p.x, p.y);
+    this.discover(this.zone);
+    this.terrain.prefetch(this.camera.ix, this.camera.iy, this.camera.viewW, this.camera.viewH, 400);
     this.impact = { result, R, t: 0, place };
     this.screen = 'impact';
     this.input.clear();
   }
 
+  /** Tile de agua junto a la costa y tile de tierra pegado a él, lo más cerca posible de (tx, ty). */
+  nearestCoast(tx, ty) {
+    const map = this.map;
+    const isWater = (x, y) => { const g = map.groundAt(x, y); return g === G.SHALLOW || g === G.DEEP; };
+    const isSand = (x, y) => map.groundAt(x, y) === G.SAND && map.levelAt(x, y) === 0;
+    let best = null;
+    let bd = Infinity;
+    for (let y = 1; y < map.height - 1; y++) {
+      for (let x = 1; x < map.width - 1; x++) {
+        if (!isSand(x, y)) continue;
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          if (!isWater(x + dx, y + dy)) continue;
+          const d = Math.hypot(x - tx, y - ty);
+          if (d < bd) { bd = d; best = { land: [x, y], water: [x + dx * 2, y + dy * 2] }; }
+        }
+      }
+    }
+    if (best && !isWater(best.water[0], best.water[1])) best.water = [best.land[0] + (best.water[0] - best.land[0]) / 2, best.land[1] + (best.water[1] - best.land[1]) / 2];
+    return best || { land: WORLD_PLACES.spawn, water: [WORLD_PLACES.spawn[0] - 6, WORLD_PLACES.spawn[1]] };
+  }
+
   /** Busca un sitio para los restos del avión cerca del punto de impacto, en la misma zona. */
   findWreckSpot(zone, tx, ty) {
     const map = this.map;
-    const wantLevel = zone === 'ruinas' ? 1 : 0;
+    // Nivel del sitio del impacto (si cae en una pared, el de arriba).
+    let wantLevel = map.levelAt(Math.floor(tx), Math.floor(ty));
+    const g0 = map.groundAt(Math.floor(tx), Math.floor(ty));
+    if (g0 === G.CLIFF || g0 === G.WATERFALL) wantLevel = map.levelAt(Math.floor(tx), map.cliffColumnTop(Math.floor(tx), Math.floor(ty)) - 1);
     const ok = (cx, cy) => {
       // Caja de los restos (96 × 16) y sitio para el jugador debajo, en suelo pisable del mismo nivel.
       for (let y = cy - 16; y <= cy + 34; y += 8) {
@@ -202,14 +243,14 @@ export class Game {
           const gy = Math.floor(y / TILE);
           if (!map.inBounds(gx, gy)) return false;
           const g = map.groundAt(gx, gy);
-          if (map.levelAt(gx, gy) !== wantLevel || g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S || g === G.DEEP || g === G.SHALLOW || g === G.BRIDGE) return false;
+          if (map.levelAt(gx, gy) !== wantLevel || g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S || g === G.DEEP || g === G.SHALLOW || g === G.BRIDGE || g === G.CHASM || g === G.SWAMP) return false;
         }
       }
-      if (zoneAt(cx, cy) !== zone && zone !== 'ruinas') return false;
-      return !this.world.props.some((pr) => pr.interact && pr.kind !== 'avion' && Math.abs(pr.x - cx) < 70 && Math.abs(pr.y - cy) < 46);
+      if (this.zoneAt(cx, cy) !== zone) return false;
+      return !this.world.index.query(cx - 70, cy - 46, cx + 70, cy + 46).some((pr) => pr.interact && pr.kind !== 'avion');
     };
-    const x0 = Math.max(2, Math.min(map.width - 3, tx)) * TILE;
-    const y0 = Math.max(2, Math.min(map.height - 3, ty)) * TILE;
+    const x0 = tx * TILE;
+    const y0 = ty * TILE;
     for (let r = 0; r <= 16 * TILE; r += 8) {
       const n = Math.max(1, Math.round((2 * Math.PI * r) / 16));
       for (let i = 0; i < n; i++) {
@@ -219,37 +260,59 @@ export class Game {
         if (ok(cx, cy)) return { x: cx, y: cy, level: wantLevel };
       }
     }
-    const [wx, wy] = PLACES.wreck;
+    const [wx, wy] = WORLD_PLACES.wreck;
     return { x: wx * TILE, y: wy * TILE, level: 0 };
   }
 
   /** Quita la vegetación y los props sin botín que queden debajo de los restos. */
   clearAround(cx, cy, level) {
-    for (const pr of [...this.world.props]) {
+    for (const pr of this.world.index.query(cx - 74, cy - 40, cx + 74, cy + 40)) {
       if (pr.interact || pr.kind === 'avion' || (pr.level || 0) !== level) continue;
-      if (pr.x > cx - 74 && pr.x < cx + 74 && pr.y > cy - 40 && pr.y < cy + 40) this.removeProp(pr);
+      this.removeProp(pr);
     }
     this.pickups = this.pickups.filter((pk) => !(pk.x > cx - 56 && pk.x < cx + 56 && pk.y > cy - 20 && pk.y < cy + 8));
+  }
+
+  indexProp(pr) {
+    if (pr.solid) this.world.grid.add(pr);
+    this.world.index.add(pr);
+    if (pr.light) this.world.lights.push(pr);
   }
 
   removeProp(pr) {
     const i = this.world.props.indexOf(pr);
     if (i >= 0) this.world.props.splice(i, 1);
     if (pr.solid) this.world.grid.remove(pr);
+    this.world.index.remove(pr);
+    const j = this.world.lights.indexOf(pr);
+    if (j >= 0) this.world.lights.splice(j, 1);
   }
 
   addProp(pr) {
     this.world.props.push(pr);
-    if (pr.solid) this.world.grid.add(pr);
+    this.indexProp(pr);
+  }
+
+  /** Zona en un punto del mundo (px). */
+  zoneAt(x, y) {
+    return worldZoneAt(this.map, x, y);
+  }
+
+  /** Marca una zona como descubierta (mapa M). */
+  discover(zone) {
+    if (this.discovered.has(zone)) return false;
+    this.discovered.add(zone);
+    this.mapDirty = true;
+    return true;
   }
 
   /** Tras la pantalla del impacto: empieza a jugar (y la tribu acude si caíste en su campamento). */
   endImpact() {
     const im = this.impact;
     this.start();
-    if (im && im.result.zone === 'campamento') {
+    if (im && (im.result.zone === 'campamento' || im.result.zone === 'poblado')) {
       for (const e of this.enemies) {
-        if (e.dead) continue;
+        if (e.dead || Math.hypot(e.x - im.place.x, e.y - im.place.y) > 700) continue;
         e.lastSeen = { x: im.place.x, y: im.place.y + 20 };
         e.state = 'investigate';
         e.detect = Math.max(e.detect, 0.6);
@@ -257,7 +320,7 @@ export class Game {
       }
       this.player.say('¡El estruendo ha alertado a la tribu!');
       this.sound('alert');
-    } else if (im && im.result.zone === 'mar') {
+    } else if (im && (im.result.result || im.result.zone) === 'mar') {
       this.player.say(im.result.forced ? 'Amerizas. La corriente te arrastra hasta la costa.' : 'El avión se hunde. ¡Nada hasta la orilla!');
     } else if (im) {
       this.player.say(im.R.avion === 'reparable' ? 'El avión aguanta. Quizá se pueda reparar.' : 'El avión ha quedado destrozado.');
@@ -266,14 +329,31 @@ export class Game {
 
   spawnEnemies() {
     const T = (v) => v * TILE;
+    const pc = this.map.piece;
+    const PX = (v) => T(v + pc.x);
+    const PY = (v) => T(v + pc.y);
     const f = this.sprites.tribe.frames;
+    const wp = (pts) => pts.map(([x, y]) => [PX(x), PY(y)]);
+    // Campamento de la tribu (trozo de la sesión 3).
     this.enemies = [
-      new Warrior(1, f, T(67.2), T(17.4), [[T(67.2), T(17.4)], [T(67.2), T(24)]], { angle: Math.PI / 2 }),
-      new Warrior(2, f, T(71.5), T(17.6), [[T(71.5), T(17.6)], [T(78.6), T(17.6)], [T(78.6), T(23.2)], [T(71.5), T(23.2)]], { angle: 0 }),
-      new Warrior(3, f, T(77.2), T(14.6), [[T(77.2), T(14.6)], [T(81.3), T(18.6)], [T(77.6), T(25.6)], [T(74), T(22.6)]], { angle: Math.PI / 2 }),
+      new Warrior(1, f, PX(67.2), PY(17.4), wp([[67.2, 17.4], [67.2, 24]]), { angle: Math.PI / 2 }),
+      new Warrior(2, f, PX(71.5), PY(17.6), wp([[71.5, 17.6], [78.6, 17.6], [78.6, 23.2], [71.5, 23.2]]), { angle: 0 }),
+      new Warrior(3, f, PX(77.2), PY(14.6), wp([[77.2, 14.6], [81.3, 18.6], [77.6, 25.6], [74, 22.6]]), { angle: Math.PI / 2 }),
     ];
-    this.animals = [new Boar(T(35.5), T(26.5))];
-    for (const y of [12.5, 19.5, 26, 30.5]) this.animals.push(new Crab(T(shoreX(y) + 1.6), T(y)));
+    // Poblado de la tribu: cinco guerreros.
+    const P = WORLD_PLACES.poblado;
+    const ring = (r, n, a0) => Array.from({ length: n }, (_, k) => [T(P.x + Math.cos(a0 + (k / n) * Math.PI * 2) * r), T(P.y + Math.sin(a0 + (k / n) * Math.PI * 2) * r)]);
+    const pts = [
+      [ring(4.2, 4, 0)], [ring(4.2, 4, Math.PI)], [[[T(P.x - 1), T(P.y + 9.6)], [T(P.x + 1.5), T(P.y + 9.6)]]],
+      [[[T(P.x + 9.8), T(P.y - 1)], [T(P.x + 9.8), T(P.y + 2)]]], [ring(6.8, 6, 0.5)],
+    ];
+    pts.forEach(([route], k) => this.enemies.push(new Warrior(4 + k, f, route[0][0], route[0][1], route, { angle: Math.PI / 2 })));
+    // Animales: jabalíes por la selva y cangrejos por las playas.
+    this.animals = [new Boar(PX(35.5), PY(26.5)), new Boar(T(70), T(104)), new Boar(T(110), T(112)), new Boar(T(40), T(90))];
+    for (const y of [12.5, 19.5, 26, 30.5]) this.animals.push(new Crab(PX(shoreX(y) + 1.6), PY(y)));
+    for (const [x, y] of [[186, 122], [190, 96], [183, 112], [60, 155], [22, 100]]) {
+      if (this.map.groundAt(x, y) === G.SAND) this.animals.push(new Crab(T(x + 0.5), T(y + 0.5)));
+    }
     // Que nadie empiece metido dentro de un árbol o una roca.
     for (const e of [...this.enemies, ...this.animals]) {
       const b = { x: e.x - 12, y: e.y - 8, w: 24, h: 8 };
@@ -284,16 +364,19 @@ export class Game {
     }
   }
 
-  findWaterfall() {
-    let x0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = 0;
-    for (let ty = 0; ty < this.map.height; ty++) {
-      for (let tx = 0; tx < this.map.width; tx++) {
-        if (this.map.groundAt(tx, ty) === G.WATERFALL) { x0 = Math.min(x0, tx); x1 = Math.max(x1, tx); y1 = Math.max(y1, ty); }
+  /** Pie de cada cascada (para la bruma). */
+  findWaterfalls() {
+    const out = [];
+    const map = this.map;
+    for (let ty = 0; ty < map.height; ty++) {
+      for (let tx = 0; tx < map.width; tx++) {
+        if (map.groundAt(tx, ty) !== G.WATERFALL || map.groundAt(tx, ty + 1) === G.WATERFALL || map.groundAt(tx - 1, ty) === G.WATERFALL) continue;
+        let x1 = tx;
+        while (map.groundAt(x1 + 1, ty) === G.WATERFALL) x1++;
+        out.push({ x: ((tx + x1 + 1) / 2) * TILE, y: (ty + 1) * TILE + 4, w: (x1 - tx + 1) * TILE });
       }
     }
-    return { x: ((x0 + x1 + 1) / 2) * TILE, y: (y1 + 1) * TILE + 4, w: (x1 - x0 + 1) * TILE };
+    return out;
   }
 
   start() {
@@ -339,8 +422,12 @@ export class Game {
 
   /** Entidades que se dibujan ordenadas con los props. */
   entities() {
-    const list = [this.player, ...this.enemies, ...this.animals];
-    for (const pk of this.pickups) list.push(pickupEntity(pk));
+    const c = this.camera;
+    const near = (e) => e.x > c.ix - 120 && e.x < c.ix + c.viewW + 120 && e.y > c.iy - 60 && e.y < c.iy + c.viewH + 160;
+    const list = [this.player];
+    for (const e of this.enemies) if (near(e)) list.push(e);
+    for (const a of this.animals) if (near(a)) list.push(a);
+    for (const pk of this.pickups) if (near(pk)) list.push(pickupEntity(pk));
     for (const b of this.bodies) if (!b.looted) list.push(bodySparkle(b));
     return list;
   }
@@ -377,14 +464,19 @@ export class Game {
     }
     if (input.pressed('character') && !this.player.dead) {
       this.charOpen = !this.charOpen;
-      this.invOpen = false;
+      this.invOpen = this.mapOpen = false;
+    }
+    if (input.pressed('map') && !this.player.dead) {
+      this.mapOpen = !this.mapOpen;
+      this.invOpen = this.charOpen = false;
     }
     if (input.pressed('pause')) {
       if (this.invOpen) this.invOpen = false;
       else if (this.charOpen) this.charOpen = false;
+      else if (this.mapOpen) this.mapOpen = false;
       else this.paused = !this.paused;
     }
-    if (this.charOpen) {
+    if (this.charOpen || this.mapOpen) {
       // Pantalla de personaje: el mundo se detiene.
     } else if (this.invOpen) {
       this.updateInventoryUI();
@@ -415,6 +507,9 @@ export class Game {
     if (this.weather.flash > wasFlash) setTimeout(() => this.sound('thunder'), 400);
     if (this.audio) this.audio.setRain(this.weather.intensity);
     this.cloudStrength = (1 - this.weather.intensity) * (1 - this.clock.darkness);
+    // Niebla en el manglar (más espesa de madrugada y con lluvia).
+    const fogTarget = this.zone === 'manglar' ? 0.85 + this.weather.intensity * 0.15 : 0;
+    this.fogStrength = (this.fogStrength || 0) + (fogTarget - (this.fogStrength || 0)) * Math.min(1, dt * 1.2);
 
     // Muerte y reaparición.
     if (p.dead) {
@@ -460,14 +555,15 @@ export class Game {
 
     p.update(dt, input, this.world);
     this.resolvePlayerAttack();
-    for (const e of this.enemies) e.update(dt, this);
-    for (const a of this.animals) a.update(dt, this);
+    for (const e of this.enemies) if (Math.abs(e.x - p.x) < ACTIVE_R && Math.abs(e.y - p.y) < ACTIVE_R) e.update(dt, this);
+    for (const a of this.animals) if (Math.abs(a.x - p.x) < ACTIVE_R && Math.abs(a.y - p.y) < ACTIVE_R) a.update(dt, this);
+    this.terrain.prefetch(this.camera.ix, this.camera.iy, this.camera.viewW, this.camera.viewH, 4);
 
     this.camera.update(dt, p);
-    const zone = zoneAt(p.x, p.y);
+    const zone = this.zoneAt(p.x, p.y);
     if (zone !== this.zone) {
       this.zone = zone;
-      this.banner = { zone, age: 0 };
+      this.banner = { zone, age: 0, nueva: this.discover(zone) };
     }
     emitAmbient(this, dt);
     if (Math.hypot(p.vx, p.vy) > 150 && Math.random() < dt * 12 && p.terrain === 'land') {
@@ -537,7 +633,7 @@ export class Game {
 
   respawn() {
     const p = this.player;
-    const [sx, sy] = PLACES.spawn;
+    const [sx, sy] = WORLD_PLACES.spawn;
     p.placeAt(sx * TILE, sy * TILE, 0);
     p.hp = Math.ceil(p.maxHp / 2);
     p.sick = 0;

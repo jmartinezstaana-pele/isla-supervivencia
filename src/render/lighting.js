@@ -37,8 +37,7 @@ export class Lighting {
     if (dark > 0.08) {
       c.globalCompositeOperation = 'lighter';
       const k = Math.min(1, dark * 1.3);
-      for (const p of game.world.props) {
-        if (!p.light) continue;
+      for (const p of game.world.lights) {
         const x = p.x - cam.ix;
         const y = p.y - cam.iy + (p.fire ? p.fire.dy * 0.6 : 0);
         const r = p.light.r * (p.light.flicker ? 0.94 + 0.06 * Math.sin(t * 13 + p.phase * 5) + 0.03 * Math.sin(t * 31) : 1);

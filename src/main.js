@@ -94,6 +94,9 @@ async function boot() {
         needs: { ...p.needs }, anim: p.anim.name, frame: p.anim.index, message: p.message && p.message.text,
       };
     },
+    zone() { return game.zone; },
+    discovered() { return [...game.discovered]; },
+    terrainStats() { const t = game.terrain; return { chunks: t.chunks.size, rendered: t.rendered, avgMs: t.renderMs / Math.max(1, t.rendered), maxMs: t.maxRenderMs }; },
     inventory() { return game.inventory.slots.map((s) => ({ ...s })); },
     enemies() { return game.enemies.map((e) => ({ id: e.id, x: e.x, y: e.y, state: e.state, detect: e.detect, hp: e.hp, dead: e.dead, angle: e.angle })); },
     /** Orden de dibujo del último fotograma ("jugador", "arbol", …). */

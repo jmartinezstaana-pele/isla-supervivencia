@@ -27,6 +27,7 @@ export const BINDINGS = {
   attack: ['KeyJ'],
   help: ['F1'],
   character: ['KeyP'],
+  map: ['KeyM'],
   random: ['KeyX'],
 };
 

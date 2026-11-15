@@ -19,7 +19,7 @@ export class Weather {
     this.splashes = [];
     // Charcos: sitios fijos en caminos y claros.
     this.puddles = [];
-    for (let i = 0; i < 900 && this.puddles.length < 70; i++) {
+    for (let i = 0; i < 9000 && this.puddles.length < 700; i++) {
       const tx = this.rng.int(0, map.width - 1);
       const ty = this.rng.int(0, map.height - 1);
       const g = map.groundAt(tx, ty);

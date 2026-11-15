@@ -82,7 +82,7 @@ export class Warrior {
     const p = game.player;
     let r = 150 * game.weather.visionFactor;
     if (game.clock.darkness > 0.45) {
-      const lit = p.torchOn || game.world.props.some((pr) => pr.light && Math.hypot(pr.x - p.x, pr.y - p.y) < pr.light.r * 0.6);
+      const lit = p.torchOn || game.world.lights.some((pr) => Math.hypot(pr.x - p.x, pr.y - p.y) < pr.light.r * 0.6);
       r *= lit ? 1.1 : 0.5;
     }
     return r;

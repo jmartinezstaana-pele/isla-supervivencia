@@ -6,6 +6,8 @@ import { VIEW_W, VIEW_H, TILE, PIXEL_SCALE } from '../config.js';
 import { ITEMS, HINTS } from '../data/items.js';
 import { ATTRS, ATTR_MAX, statLines } from '../data/attributes.js';
 import { LANDING_RESULTS } from '../world/landingMap.js';
+import { ZONES } from '../world/worldMap.js';
+import { drawWorldMap } from '../ui/worldmap.js';
 import { SLOTS } from '../systems/inventory.js';
 import { PixelCanvas, rgb } from '../gfx/pixel.js';
 import { C } from '../gfx/palette.js';
@@ -141,6 +143,7 @@ export function drawHud(c, g) {
     }
     text(c, title.toUpperCase(), VIEW_W / 2, y + 26, { size: 28, align: 'center', color: '#ffe8a8', outline: 6 });
     text(c, sub, VIEW_W / 2, y + 54, { size: 15, align: 'center', color: '#e8f0e0' });
+    if (b.nueva) text(c, '¡Zona descubierta! (M: mapa)', VIEW_W / 2, y + 88, { size: 14, align: 'center', color: '#a8f0a0', outline: 4 });
     c.globalAlpha = 1;
   }
 
@@ -191,12 +194,12 @@ export function drawHud(c, g) {
   });
 
   // --- Ayuda de controles.
-  if (g.helpT > 0 && !g.invOpen && !g.charOpen) drawHelp(c, Math.min(1, g.helpT));
+  if (g.helpT > 0 && !g.invOpen && !g.charOpen && !g.mapOpen) drawHelp(c, Math.min(1, g.helpT));
   else text(c, 'F1 · controles', VIEW_W - 16, VIEW_H - 16, { size: 13, align: 'right', color: '#c8d0c0', outline: 3 });
 
   // --- Punto de mira.
   const m = g.input.mouse;
-  if (!g.invOpen && !g.charOpen && !p.dead) {
+  if (!g.invOpen && !g.charOpen && !g.mapOpen && !p.dead) {
     c.fillStyle = '#17150f';
     c.fillRect(m.x - 7, m.y - 1, 14, 3); c.fillRect(m.x - 1, m.y - 7, 3, 14);
     c.fillStyle = '#fff6dc';
@@ -206,6 +209,7 @@ export function drawHud(c, g) {
 
   if (g.invOpen) drawInventory(c, g);
   if (g.charOpen) drawCharacter(c, g);
+  if (g.mapOpen) drawWorldMap(c, g);
   if (p.dead) {
     const a = Math.min(1, Math.max(0, g.deathT) * 0.8);
     c.fillStyle = `rgba(30, 0, 0, ${0.65 * a})`;
@@ -227,7 +231,7 @@ export function drawHud(c, g) {
 export const CONTROLS = [
   ['WASD / flechas', 'moverse'], ['Mayús', 'correr'], ['C', 'agacharse (en hierba alta: oculto)'],
   ['Clic izq. / J', 'atacar hacia el ratón'], ['F', 'eliminar por la espalda'], ['E', 'abrir, recoger, beber del río'],
-  ['I / Tab', 'inventario'], ['P', 'personaje (atributos)'], ['Q · R · H', 'comer · beber · curar'], ['T', 'antorcha'], ['Espacio', 'saltar'],
+  ['I / Tab', 'inventario'], ['P', 'personaje (atributos)'], ['M', 'mapa de la isla'], ['Q · R · H', 'comer · beber · curar'], ['T', 'antorcha'], ['Espacio', 'saltar'],
   ['Empujar contra roca', 'escalar'], ['F5 · F6', 'adelantar 2 h · lluvia (pruebas)'], ['Esc', 'pausa'],
 ];
 
@@ -371,9 +375,9 @@ export function drawImpact(c, g) {
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2 - 40;
   panel(c, x, y, w, h, 0.9);
-  const sea = im.result.zone === 'mar';
+  const sea = (im.result.result || im.result.zone) === 'mar';
   text(c, sea ? '¡AMERIZAJE!' : '¡ATERRIZAJE FORZOSO!', VIEW_W / 2, y + 36, { size: 32, align: 'center', color: '#ffe8a8', outline: 6 });
-  text(c, R.nombre, VIEW_W / 2, y + 76, { size: 22, align: 'center' });
+  text(c, (ZONES[im.result.zone] || [R.nombre])[0], VIEW_W / 2, y + 76, { size: 22, align: 'center' });
   text(c, R.dano ? `−${R.dano} de vida` : 'Sin heridas', VIEW_W / 2, y + 114, { size: 20, align: 'center', color: R.dano ? '#ff8a7a' : '#a8f0a0' });
   const estado = { reparable: 'El avión se puede reparar', destruido: 'El avión ha quedado destruido', hundido: 'El avión se ha hundido' }[R.avion];
   text(c, estado, VIEW_W / 2, y + 146, { size: 18, align: 'center', color: R.avion === 'reparable' ? '#a8f0a0' : '#ffb08a' });

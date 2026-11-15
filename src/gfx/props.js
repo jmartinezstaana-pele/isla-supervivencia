@@ -87,7 +87,7 @@ export function palm(seed) {
 }
 
 /** Copa de árbol: muchas matas pequeñas sombreadas (de atrás adelante) con huecos oscuros entre ellas. */
-function canopy(p, cx, cy, rx, ry, r, tones, n = 46) {
+export function canopy(p, cx, cy, rx, ry, r, tones, n = 46) {
   const clumps = [];
   for (let i = 0; i < n; i++) {
     const a = r.range(0, Math.PI * 2);
@@ -630,7 +630,7 @@ const FONT = {
   A: ['010', '101', '111', '101', '101'], '-': ['000', '000', '111', '000', '000'],
   0: ['111', '101', '101', '101', '111'], 7: ['111', '001', '010', '010', '010'],
 };
-function text(p, str, x, y, c) {
+export function text(p, str, x, y, c) {
   for (const ch of str) {
     const g = FONT[ch];
     if (g) g.forEach((row, j) => [...row].forEach((v, i) => v === '1' && p.set(x + i, y + j, c)));

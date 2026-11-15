@@ -37,8 +37,8 @@ export class Renderer {
     const y0 = cam.iy - 20;
     const y1 = cam.iy + LOW_H + 140;
     const items = [];
-    for (const p of g.world.props) {
-      if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 || p.hidden) continue;
+    for (const p of g.world.index.query(x0, y0, x1, y1)) {
+      if (p.hidden) continue;
       items.push({ sortY: p.y, prop: p, kind: p.kind, x: p.x, y: p.y });
     }
     for (const e of g.entities()) {
@@ -82,8 +82,8 @@ export class Renderer {
     l.globalCompositeOperation = 'source-over';
     l.fillStyle = '#173f6a';
     l.fillRect(0, 0, LOW_W, LOW_H);
-    // Suelo prerenderizado.
-    l.drawImage(g.terrain.canvas, cam.ix, cam.iy, LOW_W, LOW_H, 0, 0, LOW_W, LOW_H);
+    // Suelo pintado por trozos (los que falten se pintan ahora).
+    g.terrain.draw(l, cam.ix, cam.iy, LOW_W, LOW_H);
     cam.apply(l);
     g.water.draw(l, cam, t);
     g.weather.drawPuddles(l, cam, t);
@@ -103,6 +103,7 @@ export class Renderer {
     this.lastOrder = items;
     g.particles.draw(l);
     g.ambience.drawClouds(l, cam, t, g.cloudStrength ?? 1);
+    g.ambience.drawFog(l, cam, t, g.fogStrength ?? 0);
     cam.apply(l);
     g.lighting.draw(l, g);
     cam.apply(l);

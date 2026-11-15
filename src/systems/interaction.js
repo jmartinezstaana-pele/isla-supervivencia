@@ -28,9 +28,8 @@ export function findInteraction(game) {
       bestD = d;
     }
   }
-  for (const pr of game.world.props) {
+  for (const pr of game.world.index.query(p.x - 90, p.y - 60, p.x + 90, p.y + 60)) {
     if (!pr.interact || pr.opened || pr.emptied || (pr.level || 0) !== p.level) continue;
-    if (Math.abs(pr.x - p.x) > 90 || Math.abs(pr.y - p.y) > 60) continue;
     const r = pr.solid ? pr.col : { x: pr.x - 10, y: pr.y - 10, w: 20, h: 12 };
     const d = distToRect(p.x, p.y - 4, r);
     if (d < REACH && d < bestD) {
@@ -80,7 +79,8 @@ export function doInteraction(game, it) {
       if (pr.emptySprite) pr.emptied = true;
       else pr.opened = true;
       if (pr.kind === 'avion') p.say('Entre los restos encuentras un cuchillo y provisiones.');
-      game.stats.saqueos++;
+      if (pr.msg) p.say(pr.msg);
+      if (pr.loot && pr.loot.length) game.stats.saqueos++;
       game.sound('open');
       break;
     }

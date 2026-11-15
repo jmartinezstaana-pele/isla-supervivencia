@@ -16,10 +16,17 @@ export const G = {
   CHASM: 11,      // grieta: se cruza saltando
   TALL_GRASS: 12, // hierba alta: agachado, te oculta
   STONE: 13,      // suelo de losas de las ruinas
+  SNOW: 14,       // nieve de la cumbre
+  ROCK: 15,       // roca desnuda (monte alto y acantilados del viento)
+  MUD: 16,        // barro del manglar: ralentiza un poco
+  SWAMP: 17,      // agua turbia del manglar: como el agua poco profunda
+  GRAVEL: 18,     // grava del campamento militar
+  CONCRETE: 19,   // hormigón (helipuerto, búnker)
+  NEEDLES: 20,    // pinocha del bosque de coníferas
 };
 
 /** Agua de cualquier tipo (para el dibujo animado). */
-export const isWaterGround = (g) => g === G.SHALLOW || g === G.DEEP || g === G.RIVER || g === G.WATERFALL;
+export const isWaterGround = (g) => g === G.SHALLOW || g === G.DEEP || g === G.RIVER || g === G.WATERFALL || g === G.SWAMP;
 
 /** Suelos que nunca se pisan andando. */
 export const isBlockingGround = (g) => g === G.RIVER || g === G.WATERFALL || g === G.CLIFF || g === G.LEDGE_S;

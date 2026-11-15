@@ -1,7 +1,9 @@
-// Prerenderizado del suelo de todo el mapa en un único canvas (se hace una vez al
-// cargar). Bordes orgánicos entre suelos (coordenadas deformadas con ruido),
-// contorno oscuro de cómic, arena mojada junto al agua, losas, puente y paredes
-// de acantilado con bloques de piedra, musgo y lianas.
+// Suelo de la isla pintado por código en pixel art. Con la isla completa
+// (200 × 160 tiles, unos 33 millones de píxeles) ya no cabe prerenderizarlo
+// entero: se pinta por trozos de 128 × 128 px bajo demanda (TerrainCache), con
+// coordenadas globales para que los trozos encajen sin costuras.
+// Bordes orgánicos entre suelos, contorno oscuro de cómic, arena mojada junto al
+// agua, losas, puentes, paredes de acantilado con bloques, musgo, nieve y lianas.
 
 import { TILE } from '../config.js';
 import { fbm, hash2 } from '../core/rng.js';
@@ -9,25 +11,33 @@ import { PixelCanvas, bayer, mix, shade, rgb } from './pixel.js';
 import { C } from './palette.js';
 import { G } from '../world/tiles.js';
 
-const SOFT = new Set([G.JUNGLE, G.GRASS, G.SAND, G.DIRT, G.SHALLOW, G.DEEP, G.RIVER, G.TALL_GRASS]);
-const WATER = new Set([G.SHALLOW, G.DEEP, G.RIVER, G.WATERFALL]);
+export const CHUNK = 128;
+const MARGIN = 32;
+
+const SOFT = new Uint8Array(32);
+for (const g of [G.JUNGLE, G.GRASS, G.SAND, G.DIRT, G.SHALLOW, G.DEEP, G.RIVER, G.TALL_GRASS, G.SNOW, G.ROCK, G.MUD, G.SWAMP, G.GRAVEL, G.NEEDLES, G.CHASM]) SOFT[g] = 1;
+const WATER = new Uint8Array(32);
+for (const g of [G.SHALLOW, G.DEEP, G.RIVER, G.WATERFALL, G.SWAMP]) WATER[g] = 1;
 // Prioridad de borde: el suelo de mayor prioridad dibuja el contorno sobre el de menor.
-const PRIORITY = {
-  [G.JUNGLE]: 5, [G.TALL_GRASS]: 5, [G.GRASS]: 5, [G.DIRT]: 3, [G.SAND]: 2,
-  [G.SHALLOW]: 0, [G.DEEP]: 0, [G.RIVER]: 0, [G.STONE]: 4, [G.BRIDGE]: 6, [G.CHASM]: 1,
-};
-const VEG = new Set([G.JUNGLE, G.GRASS, G.TALL_GRASS]);
+const PRIORITY = new Int8Array(32).fill(-1);
+Object.entries({
+  [G.JUNGLE]: 5, [G.TALL_GRASS]: 5, [G.GRASS]: 5, [G.NEEDLES]: 5, [G.SNOW]: 6, [G.ROCK]: 4, [G.DIRT]: 3, [G.GRAVEL]: 3,
+  [G.MUD]: 2, [G.SAND]: 2, [G.SHALLOW]: 0, [G.DEEP]: 0, [G.RIVER]: 0, [G.SWAMP]: 0, [G.STONE]: 4, [G.CONCRETE]: 4, [G.BRIDGE]: 7, [G.CHASM]: 1,
+}).forEach(([k, v]) => { PRIORITY[k] = v; });
+const VEG = new Uint8Array(32);
+for (const g of [G.JUNGLE, G.GRASS, G.TALL_GRASS, G.NEEDLES]) VEG[g] = 1;
 
 const SEA_BANDS = ['#7fdcd0', '#55c3c6', '#36a5b6', '#2a88a6', '#226e96', '#1d5a86', '#184a74'].map((c) => rgb(c));
 const RIVER_BANDS = ['#6fd0c8', '#45adb8', '#2f8ea4', '#277892'].map((c) => rgb(c));
+const SWAMP_BANDS = ['#5e8a6a', '#4a7a60', '#3d6a55', '#335c4a'].map((c) => rgb(c));
 const SEA_STEPS = [3, 8, 15, 24, 34, 46];
 const RIVER_STEPS = [2, 5, 9];
 function waterBand(g, d) {
-  const steps = g === G.RIVER ? RIVER_STEPS : SEA_STEPS;
-  const bands = g === G.RIVER ? RIVER_BANDS : SEA_BANDS;
+  const steps = g === G.DEEP || g === G.SHALLOW ? SEA_STEPS : RIVER_STEPS;
+  const bands = g === G.RIVER ? RIVER_BANDS : g === G.SWAMP ? SWAMP_BANDS : SEA_BANDS;
   let k = 0;
   while (k < steps.length && d > steps[k]) k++;
-  return bands[k];
+  return bands[Math.min(k, bands.length - 1)];
 }
 
 /** Orilla de barro entre la vegetación y el agua. */
@@ -39,17 +49,22 @@ function bank(c, d, x, y) {
   return c;
 }
 
+const COS = Float32Array.from({ length: 32 }, (_, t) => Math.cos(t * 1.7));
+const SIN = Float32Array.from({ length: 32 }, (_, t) => Math.sin(t * 1.7));
+
 const pick = (tones, t) => tones[Math.max(0, Math.min(tones.length - 1, Math.floor(t * tones.length)))];
 
-/** Campo de ruido muestreado cada `step` px e interpolado (mucho más rápido que por píxel). */
-function noiseField(w, h, step, scale, seed, octaves = 3) {
-  const gw = Math.ceil(w / step) + 2;
-  const gh = Math.ceil(h / step) + 2;
+/** Campo de ruido en coordenadas globales, muestreado cada `step` px e interpolado. */
+function noiseField(rx, ry, w, h, step, scale, seed, octaves = 3) {
+  const bx = Math.floor(rx / step);
+  const by = Math.floor(ry / step);
+  const gw = Math.ceil(w / step) + 3;
+  const gh = Math.ceil(h / step) + 3;
   const grid = new Float32Array(gw * gh);
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) grid[j * gw + i] = fbm((i * step) / scale, (j * step) / scale, seed, octaves);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) grid[j * gw + i] = fbm(((bx + i) * step) / scale, ((by + j) * step) / scale, seed, octaves);
   return (x, y) => {
-    const fx = x / step;
-    const fy = y / step;
+    const fx = x / step - bx;
+    const fy = y / step - by;
     const i = fx | 0;
     const j = fy | 0;
     const u = fx - i;
@@ -101,108 +116,203 @@ function distanceTransform(mask, w, h, max) {
   return out;
 }
 
-export function renderTerrain(map) {
-  const W = map.pixelWidth;
-  const H = map.pixelHeight;
-  const pc = new PixelCanvas(W, H);
+/** Distancia (px) de cada tile a la tierra más cercana, para la profundidad del mar lejos de la costa. */
+export function coarseLandDistance(map) {
+  const W = map.width;
+  const H = map.height;
+  const mask = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) mask[i] = WATER[map.ground[i]] ? 0 : 1;
+  const d = distanceTransform(mask, W, H, 85);
+  return { W, H, d };
+}
+
+/** Lienzo de píxeles con origen desplazado: se dibuja en coordenadas globales. */
+class RegionCanvas extends PixelCanvas {
+  constructor(ox, oy, w, h) {
+    super(w, h);
+    this.ox = ox;
+    this.oy = oy;
+  }
+
+  set(x, y, c) { super.set(x - this.ox, y - this.oy, c); }
+  get(x, y) { return super.get(x - this.ox, y - this.oy); }
+}
+
+/**
+ * Pinta la región [rx, rx + rw) × [ry, ry + rh) del suelo (en px de mundo).
+ * Devuelve el lienzo y, por píxel, el tipo de suelo, el agua y la distancia a tierra.
+ */
+export function renderRegion(map, rx, ry, rw, rh, coarse) {
+  const pc = new RegionCanvas(rx, ry, rw, rh);
   const px = pc.data;
-  const type = new Uint8Array(W * H);
-  const lvl = new Uint8Array(W * H);
+  const N = rw * rh;
+  const type = new Uint8Array(N);
+  const lvl = new Uint8Array(N);
+  const MW = map.width;
+  const MH = map.height;
+  const gAt = (tx, ty) => (tx >= 0 && ty >= 0 && tx < MW && ty < MH ? map.ground[ty * MW + tx] : G.DEEP);
+  // Ventana de tiles de la región (con un tile de margen): evita comprobar límites por píxel.
+  const wx0 = Math.floor(rx / TILE) - 1;
+  const wy0 = Math.floor(ry / TILE) - 1;
+  const ww = Math.ceil((rx + rw) / TILE) - wx0 + 2;
+  const wh = Math.ceil((ry + rh) / TILE) - wy0 + 2;
+  const tg = new Uint8Array(ww * wh);
+  const tl = new Uint8Array(ww * wh);
+  for (let j = 0; j < wh; j++) for (let i = 0; i < ww; i++) { tg[j * ww + i] = gAt(wx0 + i, wy0 + j); const tx = wx0 + i; const ty = wy0 + j; tl[j * ww + i] = tx >= 0 && ty >= 0 && tx < MW && ty < MH ? map.level[ty * MW + tx] : 0; }
 
-  const warpX = noiseField(W, H, 4, 46, 101);
-  const warpY = noiseField(W, H, 4, 46, 202);
-  const low = noiseField(W, H, 4, 90, 303);
-  const mid = noiseField(W, H, 4, 18, 404, 2);
+  const warpX = noiseField(rx, ry, rw, rh, 4, 46, 101);
+  const warpY = noiseField(rx, ry, rw, rh, 4, 46, 202);
+  const low = noiseField(rx, ry, rw, rh, 4, 90, 303);
+  const mid = noiseField(rx, ry, rw, rh, 4, 18, 404, 2);
 
-  // 1) Tipo de suelo por píxel. Entre suelos "blandos" del mismo nivel se
-  //    interpola la pertenencia a cada tipo entre los centros de los tiles
-  //    (bordes redondeados en vez de escalones) y se le suma ruido (bordes orgánicos).
-  const score = new Float32Array(16);
-  for (let y = 0; y < H; y++) {
-    const fy = y / TILE - 0.5;
+  // 1) Tipo de suelo por píxel: entre suelos blandos del mismo nivel se interpola
+  //    la pertenencia a cada tipo y se le suma ruido (bordes orgánicos).
+  const types = new Uint8Array(4);
+  const scores = new Float32Array(4);
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    const fy = gy / TILE - 0.5;
     const ty0 = Math.floor(fy);
     const v = fy - ty0;
-    const tyc = (y / TILE) | 0;
-    for (let x = 0; x < W; x++) {
-      const txc = (x / TILE) | 0;
-      const ci = tyc * map.width + txc;
-      const g0 = map.ground[ci];
-      const l0 = map.level[ci];
+    const rowC = (Math.floor(gy / TILE) - wy0) * ww - wx0;
+    const row0 = (ty0 - wy0) * ww - wx0;
+    for (let x = 0; x < rw; x++) {
+      const gx = rx + x;
+      const ci = rowC + Math.floor(gx / TILE);
+      const g0 = tg[ci];
+      const l0 = tl[ci];
       let g = g0;
-      if (SOFT.has(g0)) {
-        const fx = x / TILE - 0.5;
+      if (SOFT[g0]) {
+        const fx = gx / TILE - 0.5;
         const tx0 = Math.floor(fx);
         const u = fx - tx0;
-        score.fill(0);
-        let any = false;
+        const base = row0 + tx0;
+        const seaC = g0 === G.DEEP || g0 === G.SHALLOW;
+        let n = 0;
         for (let k = 0; k < 4; k++) {
-          const tx = Math.min(map.width - 1, Math.max(0, tx0 + (k & 1)));
-          const ty = Math.min(map.height - 1, Math.max(0, ty0 + (k >> 1)));
-          const j = ty * map.width + tx;
-          const gk = map.ground[j];
-          if (!SOFT.has(gk) || map.level[j] !== l0) continue;
-          const wu = k & 1 ? u : 1 - u;
-          const wv = k >> 1 ? v : 1 - v;
-          score[gk] += wu * wv;
-          any = true;
+          const j = base + (k & 1) + (k >> 1) * ww;
+          const gk = tg[j];
+          // Entre niveles distintos solo se mezcla la tierra con el mar (costas altas orgánicas).
+          if (!SOFT[gk] || (tl[j] !== l0 && !(seaC || gk === G.DEEP || gk === G.SHALLOW))) continue;
+          const wgt = (k & 1 ? u : 1 - u) * (k >> 1 ? v : 1 - v);
+          let q = 0;
+          while (q < n && types[q] !== gk) q++;
+          if (q === n) { types[n] = gk; scores[n] = 0; n++; }
+          scores[q] += wgt;
         }
-        if (any) {
-          let best = -1;
+        if (n > 1) {
+          const wx = warpX(gx, gy) - 0.5;
+          const wy = warpY(gx, gy) - 0.5;
+          const m = mid(gx, gy) - 0.5;
+          let best = g0;
           let bestS = -Infinity;
-          for (let t = 0; t < 16; t++) {
-            if (!score[t]) continue;
-            // Cada tipo tiene su propio ruido (muestreado con un desplazamiento).
-            const ox = (x + t * 211) % W;
-            const oy = (y + t * 97) % H;
-            const n = (warpX(ox, oy) - 0.5) * 0.85 + (mid(ox, oy) - 0.5) * 0.6 + (hash2(x >> 1, y >> 1, t) - 0.5) * 0.06;
-            const sc = score[t] + n * (t === G.RIVER ? 0.4 : 1);
+          for (let q = 0; q < n; q++) {
+            const t = types[q];
+            // Cada tipo combina los ruidos de forma distinta: bordes propios.
+            const nn = (wx * COS[t] + wy * SIN[t]) * 1.2 + m * 0.6 + (hash2(gx >> 1, gy >> 1, t) - 0.5) * 0.06;
+            const sc = scores[q] + nn * (t === G.RIVER ? 0.4 : 1);
             if (sc > bestS) { bestS = sc; best = t; }
           }
-          // El tile central siempre conserva algo de su tipo (no se "come" del todo).
           g = best;
         }
       }
-      type[y * W + x] = g;
-      lvl[y * W + x] = l0;
+      type[y * rw + x] = g;
+      lvl[y * rw + x] = l0;
     }
   }
 
-  // 2) Distancias: agua ↔ tierra (orilla, profundidad y arena mojada).
-  const waterMask = new Uint8Array(W * H);
-  const landMask = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) {
-    const w = WATER.has(type[i]) && type[i] !== G.WATERFALL;
+  // 2) Distancias agua ↔ tierra.
+  const waterMask = new Uint8Array(N);
+  const landMask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const w = WATER[type[i]] && type[i] !== G.WATERFALL;
     waterMask[i] = w ? 1 : 0;
     landMask[i] = w || type[i] === G.WATERFALL ? 0 : 1;
   }
-  const distToWater = distanceTransform(waterMask, W, H, 12);
-  const distToLand = distanceTransform(landMask, W, H, 60);
+  let anyWater = false;
+  for (let i = 0; i < N; i++) if (waterMask[i]) { anyWater = true; break; }
+  // Tierra adentro (lo más común) no hace falta calcular distancias al agua.
+  const distToWater = anyWater ? distanceTransform(waterMask, rw, rh, 12) : new Uint8Array(N).fill(12);
+  const distToLand = anyWater ? distanceTransform(landMask, rw, rh, 60) : new Uint8Array(N);
+  // Lejos de la costa (más allá del margen) manda la distancia aproximada por tiles.
+  for (let y = 0; y < rh; y++) {
+    for (let x = 0; x < rw; x++) {
+      const i = y * rw + x;
+      if (distToLand[i] < MARGIN - 4) continue;
+      const tx = Math.min(coarse.W - 1, Math.max(0, Math.floor((rx + x) / TILE)));
+      const ty = Math.min(coarse.H - 1, Math.max(0, Math.floor((ry + y) / TILE)));
+      const cd = Math.max(0, coarse.d[ty * coarse.W + tx] * TILE - 16);
+      distToLand[i] = Math.min(60, Math.max(distToLand[i], cd));
+    }
+  }
 
   // 3) Color base.
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    for (let x = 0; x < rw; x++) {
+      const gx = rx + x;
+      const i = y * rw + x;
       const g = type[i];
-      const hpx = hash2(x, y, 7);
-      const b = bayer(x, y);
-      const n = low(x, y);
-      const m = mid(x, y);
+      const hpx = hash2(gx, gy, 7);
+      const b = bayer(gx, gy);
+      const n = low(gx, gy);
+      const m = mid(gx, gy);
       let c;
       switch (g) {
         case G.JUNGLE:
         case G.TALL_GRASS: {
           const t = n * 0.75 + m * 0.45 + (b - 0.5) * 0.35 + (hpx - 0.5) * 0.15 - 0.15 + lvl[i] * 0.06;
-          c = pick(g === G.TALL_GRASS ? C.grass : C.jungleFloor, t);
-          c = bank(c, distToWater[i], x, y);
+          c = bank(pick(g === G.TALL_GRASS ? C.grass : C.jungleFloor, t), distToWater[i], gx, gy);
           break;
         }
         case G.GRASS: {
           const t = n * 0.6 + m * 0.5 + (b - 0.5) * 0.35 + (hpx - 0.5) * 0.15 - 0.05;
-          c = bank(pick(C.grass, t), distToWater[i], x, y);
+          c = bank(pick(C.grass, t), distToWater[i], gx, gy);
+          break;
+        }
+        case G.NEEDLES: {
+          const t = n * 0.55 + m * 0.55 + (b - 0.5) * 0.4 + (hpx - 0.5) * 0.2 - 0.05;
+          c = bank(pick(C.needles, t), distToWater[i], gx, gy);
+          break;
+        }
+        case G.SNOW: {
+          // Nieve con ondulaciones de viento y sombras azuladas.
+          const drift = Math.sin(gy * 0.21 + gx * 0.05 + m * 7) > 0.8 ? -0.18 : 0;
+          const t = 0.45 + n * 0.4 + (b - 0.5) * 0.25 + drift + (hpx - 0.5) * 0.08;
+          c = pick(C.snow, t);
+          if (hpx > 0.995) c = C.white;
+          break;
+        }
+        case G.ROCK: {
+          const t = 0.3 + n * 0.45 + m * 0.3 + (b - 0.5) * 0.3 + (hpx - 0.5) * 0.15;
+          c = pick(C.stone, t);
+          if (Math.abs(Math.sin(gx * 0.09 + m * 9) + Math.sin(gy * 0.13 - n * 6)) < 0.05) c = C.stone[0]; // grietas
+          break;
+        }
+        case G.MUD: {
+          const t = n * 0.5 + m * 0.6 + (b - 0.5) * 0.4 + (hpx - 0.5) * 0.15 - 0.05;
+          c = pick(C.mud, t);
+          if (m > 0.62 && b < 0.3) c = mix(c, rgb('#6a7a6a'), 0.35); // brillo húmedo
+          break;
+        }
+        case G.GRAVEL: {
+          const t = 0.35 + n * 0.3 + (b - 0.5) * 0.3 + (hpx - 0.5) * 0.6;
+          c = pick(C.gravel, t);
+          break;
+        }
+        case G.CONCRETE: {
+          const lx = ((gx % 32) + 32) % 32;
+          const ly = ((gy % 32) + 32) % 32;
+          const slab = hash2(gx >> 5, gy >> 5, 12);
+          c = pick(C.concrete, 0.45 + slab * 0.3 + (b - 0.5) * 0.15 + (hpx - 0.5) * 0.1);
+          if (lx === 0 || ly === 0) c = C.concrete[0];
+          else if (lx === 1 || ly === 1) c = C.concrete[4];
+          if (hash2(gx >> 2, gy >> 2, 14) < 0.04) c = C.concrete[1]; // manchas
+          if (n > 0.66 && b < 0.35) c = C.moss[0];
           break;
         }
         case G.SAND: {
-          const ripple = Math.sin(y * 0.55 + x * 0.12 + m * 9) > 0.86 ? 0.25 : 0;
+          const ripple = Math.sin(gy * 0.55 + gx * 0.12 + m * 9) > 0.86 ? 0.25 : 0;
           const t = 0.35 + n * 0.35 + (b - 0.5) * 0.3 + ripple + (hpx - 0.5) * 0.1;
           c = pick(C.sand, t);
           const dw = distToWater[i];
@@ -219,19 +329,12 @@ export function renderTerrain(map) {
         }
         case G.SHALLOW:
         case G.DEEP:
-        case G.RIVER: {
-          const d = distToLand[i];
-          let base;
-          if (g === G.RIVER) base = mix(C.waterShallow, C.river, Math.min(1, d / 10));
-          else if (d < 14) base = mix(C.waterShallow, C.waterMid, d / 14);
-          else if (d < 40) base = mix(C.waterMid, C.waterDeep, (d - 14) / 26);
-          else base = mix(C.waterDeep, C.waterDeepest, Math.min(1, (d - 40) / 20));
-          // Bandas de color con trama (pixel art, no degradado liso).
-          c = waterBand(g, d + (b - 0.5) * 2.5 + (n - 0.5) * 3);
+        case G.RIVER:
+        case G.SWAMP:
+          c = waterBand(g, distToLand[i] + (b - 0.5) * 2.5 + (n - 0.5) * 3);
           break;
-        }
         case G.CHASM:
-          c = mix(rgb('#1a120c'), rgb('#000000'), Math.min(1, (y % TILE) / TILE));
+          c = rgb('#07060a');
           break;
         case G.WATERFALL:
           c = C.stone[0];
@@ -243,84 +346,142 @@ export function renderTerrain(map) {
     }
   }
 
-  drawStone(pc, map, type);
-  drawBridge(pc, map);
-
-  // 4) Contornos de cómic entre suelos (el de más prioridad dibuja el borde).
-  const src = px.slice();
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
-      const i = y * W + x;
+  // Paredes de roca: en las costas altas (cara sur sobre el mar) y dentro de las grietas.
+  // Por columnas: distancia al primer mar por debajo y al primer suelo firme por encima.
+  for (let x = 0; x < rw; x++) {
+    const gx = rx + x;
+    let up = 99;     // px desde el último píxel que no es grieta, bajando
+    for (let y = 0; y < rh; y++) {
+      const i = y * rw + x;
+      if (type[i] !== G.CHASM) { up = 0; continue; }
+      up++;
+      const gy = ry + y;
+      if (up <= 8) {
+        const k = up;
+        const block = hash2(gx >> 3, (gy - k) >> 2, 44);
+        let c = pick(C.stone, 0.75 - k * 0.09 + block * 0.15 + (bayer(gx, gy) - 0.5) * 0.15);
+        if (k === 1) c = C.stone[4];
+        if ((gx + (k > 4 ? 3 : 0)) % 9 === 0) c = C.stone[0];
+        px[i] = k > 6 ? shade(c, 0.55) : c;
+      } else if (bayer(gx, gy) < 0.06) px[i] = rgb('#1a1418');
+    }
+    let down = 99;   // px hasta el primer mar por debajo (subiendo desde abajo)
+    for (let y = rh - 1; y >= 0; y--) {
+      const i = y * rw + x;
       const g = type[i];
-      const p = PRIORITY[g];
-      if (p === undefined) continue;
-      let lower = false;
-      for (const j of [i - 1, i + 1, i - W, i + W]) {
-        const q = PRIORITY[type[j]];
-        if (q !== undefined && q < p && lvl[j] === lvl[i]) { lower = true; break; }
-      }
-      if (!lower) continue;
-      if (VEG.has(g)) px[i] = C.outlineGreen;
-      else if (g === G.DIRT) px[i] = C.dirt[0];
-      else if (g === G.SAND) px[i] = C.wetSand[0];
-      else if (g === G.STONE || g === G.BRIDGE) px[i] = C.outline;
-      // Segundo píxel algo más oscuro: da volumen al borde.
-      const k = i + (type[i + W] === g ? W : -W);
-      if (type[k] === g && VEG.has(g)) px[k] = shade(src[k], 0.78);
+      if (g === G.SHALLOW || g === G.DEEP) { down = 0; continue; }
+      if (WATER[g]) { down = 99; continue; }
+      down++;
+      if (lvl[i] === 0 || down > 8 || g === G.CHASM) continue;
+      const k = down;
+      const gy = ry + y;
+      const band = Math.floor((gy + k) / 5);
+      const block = hash2(Math.floor((gx + band * 7) / 11), band, 46);
+      let c = pick(C.stone, 0.25 + (k / 8) * 0.45 + block * 0.25 + (bayer(gx, gy) - 0.5) * 0.15);
+      if ((gy + k) % 5 === 0 || (gx + band * 7) % 11 === 0) c = C.stone[0];
+      if (k >= 8) c = C.outline;
+      else if (k === 7) c = C.stone[4];
+      else if (k <= 1) c = shade(c, 0.6);
+      px[i] = c;
     }
   }
 
-  drawDecals(pc, map, type);
-  drawCliffs(pc, map, type);
+  const tx0 = Math.floor(rx / TILE);
+  const ty0 = Math.floor(ry / TILE);
+  const tx1 = Math.floor((rx + rw - 1) / TILE);
+  const ty1 = Math.floor((ry + rh - 1) / TILE);
+  const ctx = { map, pc, type, rx, ry, rw, rh, tx0, ty0, tx1, ty1, gAt };
+  drawStone(ctx);
+  drawBridges(ctx);
+  drawHelipad(ctx);
 
-  return { canvas: pc.toCanvas(), type, distToLand, distToWater, width: W, height: H };
+  // 4) Contornos de cómic entre suelos (el de más prioridad dibuja el borde).
+  const src = px.slice();
+  for (let y = 1; y < rh - 1; y++) {
+    for (let x = 1; x < rw - 1; x++) {
+      const i = y * rw + x;
+      const g = type[i];
+      const p = PRIORITY[g];
+      if (p < 0) continue;
+      const li = lvl[i];
+      const qa = PRIORITY[type[i - 1]];
+      const qb = PRIORITY[type[i + 1]];
+      const qc = PRIORITY[type[i - rw]];
+      const qd = PRIORITY[type[i + rw]];
+      const lower = (qa >= 0 && qa < p && (lvl[i - 1] === li || qa === 0)) || (qb >= 0 && qb < p && (lvl[i + 1] === li || qb === 0)) ||
+        (qc >= 0 && qc < p && (lvl[i - rw] === li || qc === 0)) || (qd >= 0 && qd < p && (lvl[i + rw] === li || qd === 0));
+      if (!lower) continue;
+      if (VEG[g]) px[i] = g === G.NEEDLES ? C.needles[0] : C.outlineGreen;
+      else if (g === G.DIRT) px[i] = C.dirt[0];
+      else if (g === G.SAND) px[i] = C.wetSand[0];
+      else if (g === G.SNOW) px[i] = C.snow[1];
+      else if (g === G.ROCK) px[i] = C.stone[0];
+      else if (g === G.MUD) px[i] = C.mud[0];
+      else if (g === G.GRAVEL) px[i] = C.gravel[0];
+      else if (g === G.STONE || g === G.BRIDGE || g === G.CONCRETE) px[i] = C.outline;
+      // Segundo píxel algo más oscuro: da volumen al borde.
+      const k = i + (type[i + rw] === g ? rw : -rw);
+      if (type[k] === g && (VEG[g] || g === G.SNOW)) px[k] = shade(src[k], g === G.SNOW ? 0.9 : 0.78);
+    }
+  }
+
+  drawDecals(ctx);
+  drawCliffs(ctx);
+
+  // Agua por píxel para la capa animada: 1 mar, 2 río, 3 cascada, 4 manglar.
+  const kind = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const g = type[i];
+    kind[i] = g === G.SHALLOW || g === G.DEEP ? 1 : g === G.RIVER ? 2 : g === G.WATERFALL ? 3 : g === G.SWAMP ? 4 : 0;
+  }
+  return { pc, type, kind, dist: distToLand };
 }
 
 /** Losas de piedra con juntas, grietas y musgo (suelo de las ruinas). */
-function drawStone(pc, map, type) {
-  const W = pc.w;
-  for (let y = 0; y < pc.h; y++) {
-    const row = (y / 14) | 0;
-    const off = (row % 2) * 9;
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
+function drawStone({ pc, type, rx, ry, rw, rh }) {
+  for (let y = 0; y < rh; y++) {
+    const gy = ry + y;
+    const row = Math.floor(gy / 14);
+    const off = (((row % 2) + 2) % 2) * 9;
+    for (let x = 0; x < rw; x++) {
+      const i = y * rw + x;
       if (type[i] !== G.STONE) continue;
-      const lx = (x + off) % 18;
-      const ly = y % 14;
-      const slab = hash2(((x + off) / 18) | 0, row, 5);
-      let c = pick(C.stone, 0.45 + slab * 0.4 + (bayer(x, y) - 0.5) * 0.2);
+      const gx = rx + x;
+      const lx = (gx + off) % 18;
+      const ly = gy % 14;
+      const slab = hash2(Math.floor((gx + off) / 18), row, 5);
+      let c = pick(C.stone, 0.45 + slab * 0.4 + (bayer(gx, gy) - 0.5) * 0.2);
       if (ly === 0 || lx === 0) c = C.stone[0];
       else if (ly === 1 || lx === 1) c = C.stone[4];
       else if (ly === 13 || lx === 17) c = C.stone[1];
-      // Musgo en las juntas y manchas.
-      if ((ly <= 1 || lx <= 1) && hash2(x, y, 9) < 0.45) c = C.moss[(x + y) % 2];
-      if (slab > 0.8 && hash2(x >> 2, y >> 2, 3) < 0.35) c = C.moss[1 + (bayer(x, y) > 0.5 ? 1 : 0)];
+      if ((ly <= 1 || lx <= 1) && hash2(gx, gy, 9) < 0.45) c = C.moss[(gx + gy) % 2];
+      if (slab > 0.8 && hash2(gx >> 2, gy >> 2, 3) < 0.35) c = C.moss[1 + (bayer(gx, gy) > 0.5 ? 1 : 0)];
       pc.data[i] = c;
     }
   }
 }
 
-/** Puente colgante: tablones con huecos y barandillas de cuerda que se combean. */
-function drawBridge(pc, map) {
-  // Rectángulos de puente (filas contiguas).
-  for (let ty = 0; ty < map.height; ty++) {
-    for (let tx = 0; tx < map.width; tx++) {
+/** Puentes colgantes y embarcadero: tablones con huecos y barandillas de cuerda. */
+function drawBridges({ map, pc, tx0, ty0, tx1, ty1 }) {
+  for (let ty = ty0 - 2; ty <= ty1 + 1; ty++) {
+    for (let tx = tx0 - 12; tx <= tx1 + 1; tx++) {
       if (map.groundAt(tx, ty) !== G.BRIDGE || map.groundAt(tx - 1, ty) === G.BRIDGE || map.groundAt(tx, ty - 1) === G.BRIDGE) continue;
-      let tx1 = tx;
-      while (map.groundAt(tx1 + 1, ty) === G.BRIDGE) tx1++;
-      let ty1 = ty;
-      while (map.groundAt(tx, ty1 + 1) === G.BRIDGE) ty1++;
+      let bx1 = tx;
+      while (map.groundAt(bx1 + 1, ty) === G.BRIDGE) bx1++;
+      let by1 = ty;
+      while (map.groundAt(tx, by1 + 1) === G.BRIDGE) by1++;
       const x0 = tx * TILE - 6;
-      const x1 = (tx1 + 1) * TILE + 6;
+      const x1 = (bx1 + 1) * TILE + 6;
       const y0 = ty * TILE + 4;
-      const y1 = (ty1 + 1) * TILE - 4;
+      const y1 = (by1 + 1) * TILE - 4;
       const span = x1 - x0;
+      // Embarcadero (un extremo en el mar): sin combarse y con pilotes.
+      const pier = map.groundAt(bx1 + 1, ty) === G.SHALLOW || map.groundAt(bx1 + 1, ty) === G.DEEP;
       for (let x = x0; x < x1; x++) {
-        const sag = Math.round(Math.sin(((x - x0) / span) * Math.PI) * 3);
+        const sag = pier ? 0 : Math.round(Math.sin(((x - x0) / span) * Math.PI) * 3);
         const plank = Math.floor((x - x0) / 6);
         const lx = (x - x0) % 6;
         const tone = hash2(plank, ty, 21);
-        // Sombra del puente sobre el agua.
         for (let y = y1 + sag; y < y1 + sag + 4; y++) pc.set(x, y, shade(pc.get(x, y), 0.6));
         for (let y = y0 + sag; y < y1 + sag; y++) {
           let c;
@@ -335,43 +496,70 @@ function drawBridge(pc, map) {
           }
           pc.set(x, y, c);
         }
-        // Cuerdas a lo largo, algo por encima de los tablones.
-        for (const [ry, dark] of [[y0 + sag - 2, false], [y1 + sag - 3, true]]) {
-          pc.set(x, ry, C.rope[2]);
-          pc.set(x, ry + 1, dark ? C.rope[0] : C.rope[1]);
-          if ((x - x0) % 12 === 0) for (let k = 2; k < 6; k++) pc.set(x, ry + k, C.rope[0]);
+        if (pier) {
+          if ((x - x0) % 32 === 4) for (let k = 0; k < 7; k++) { pc.set(x, y1 + k, C.wood[0]); pc.set(x + 1, y1 + k, C.wood[1]); pc.set(x + 2, y1 + k, C.outline); }
+          continue;
+        }
+        for (const [ryy, dark] of [[y0 + sag - 2, false], [y1 + sag - 3, true]]) {
+          pc.set(x, ryy, C.rope[2]);
+          pc.set(x, ryy + 1, dark ? C.rope[0] : C.rope[1]);
+          if ((x - x0) % 12 === 0) for (let k = 2; k < 6; k++) pc.set(x, ryy + k, C.rope[0]);
         }
       }
     }
   }
 }
 
-/** Detalles del suelo: hojas caídas, plantitas, flores, conchas, piedrecitas. */
-function drawDecals(pc, map, type) {
-  const W = pc.w;
-  for (let ty = 0; ty < map.height; ty++) {
-    for (let tx = 0; tx < map.width; tx++) {
+/** Marcas del helipuerto: círculo amarillo y la H blanca. */
+function drawHelipad({ map, pc }) {
+  const h = map.helipad;
+  if (!h) return;
+  const cx = (h.x + 0.5) * TILE;
+  const cy = (h.y + 0.5) * TILE;
+  if (cx < pc.ox - 80 || cx > pc.ox + pc.w + 80 || cy < pc.oy - 80 || cy > pc.oy + pc.h + 80) return;
+  for (let y = cy - 64; y <= cy + 64; y++) {
+    for (let x = cx - 64; x <= cx + 64; x++) {
+      const d = Math.hypot(x - cx, y - cy);
+      const worn = hash2(x >> 1, y >> 1, 66) < 0.12;
+      if (d > 52 && d < 57 && !worn) pc.set(x, y, d < 53 ? C.yellow[0] : C.yellow[2]);
+      const lx = x - cx;
+      const ly = y - cy;
+      const inH = (Math.abs(lx + 14) < 4 || Math.abs(lx - 14) < 4 || Math.abs(ly) < 4) && Math.abs(lx) < 18 && Math.abs(ly) < 24;
+      if (inH && !worn) pc.set(x, y, Math.abs(ly) === 23 || Math.abs(lx) === 17 ? C.concrete[2] : rgb('#eef0ea'));
+    }
+  }
+}
+
+/** Detalles del suelo por bioma: hojas, matas, flores, conchas, piedras, pinocha, nenúfares… */
+function drawDecals({ pc, type, rx, ry, rw, rh, tx0, ty0, tx1, ty1 }) {
+  const at = (x, y) => {
+    const lx = x - rx;
+    const ly = y - ry;
+    return lx >= 0 && ly >= 0 && lx < rw && ly < rh ? type[ly * rw + lx] : -1;
+  };
+  for (let ty = ty0 - 1; ty <= ty1 + 1; ty++) {
+    for (let tx = tx0 - 1; tx <= tx1 + 1; tx++) {
       for (let k = 0; k < 10; k++) {
         const r = hash2(tx * 7 + k, ty * 13 + k, 31);
         const x = tx * TILE + Math.floor(hash2(tx, ty * 3 + k, 41) * TILE);
         const y = ty * TILE + Math.floor(hash2(tx * 5 + k, ty, 51) * TILE);
-        const g = type[y * W + x];
+        const g = at(x, y);
         if (g === G.JUNGLE || g === G.GRASS) {
-          if (r < 0.2) { // plantita en V
+          if (r < 0.2) {
             const col = g === G.JUNGLE ? C.jungleLeaf[4] : C.grass[4];
             pc.set(x, y, col); pc.set(x - 1, y - 1, col); pc.set(x + 1, y - 1, col);
             pc.set(x, y + 1, C.outlineGreen);
-          } else if (r < 0.3) { // mata de hierba de 4 briznas
+          } else if (r < 0.3) {
             const cols = g === G.JUNGLE ? C.jungleLeaf : C.grass;
             for (let b2 = -2; b2 <= 2; b2 += 1) {
               const hgt = 3 - Math.abs(b2) + (b2 === 0 ? 1 : 0);
               for (let k2 = 0; k2 < hgt; k2++) pc.set(x + b2 + (k2 > 1 ? Math.sign(b2) : 0), y - k2, cols[2 + Math.min(2, k2)]);
             }
             pc.set(x - 1, y + 1, C.outlineGreen); pc.set(x, y + 1, C.outlineGreen); pc.set(x + 1, y + 1, C.outlineGreen);
-          } else if (r < 0.4 && g === G.JUNGLE) { // hoja caída
+          } else if (r < 0.4 && g === G.JUNGLE) {
             const col = r < 0.34 ? rgb('#6b5a22') : rgb('#4a3a18');
             pc.set(x, y, col); pc.set(x + 1, y, col); pc.set(x + 1, y + 1, C.outlineGreen);
-          } else if (r < 0.43 && hash2(tx >> 1, ty >> 1, 77) < 0.3) { // flores, en grupos
+          } else if (r < 0.43 && hash2(tx >> 1, ty >> 1, 77) < 0.3) {
             const fl = hash2(tx >> 1, ty >> 1, 78) < 0.55 ? C.red : C.purple;
             pc.set(x, y - 1, fl[3]); pc.set(x - 1, y, fl[2]); pc.set(x + 1, y, fl[2]); pc.set(x, y, C.yellow[2]);
             pc.set(x, y + 1, fl[1]); pc.set(x - 1, y + 1, C.outlineGreen); pc.set(x + 1, y + 1, C.outlineGreen);
@@ -379,14 +567,51 @@ function drawDecals(pc, map, type) {
           } else if (r < 0.5 && g === G.GRASS) {
             pc.set(x, y, C.yellow[2]); pc.set(x, y + 1, C.yellow[0]);
           }
+        } else if (g === G.NEEDLES) {
+          if (r < 0.3) { // agujas de pino cruzadas
+            pc.set(x, y, C.needles[4]); pc.set(x + 1, y + 1, C.needles[3]); pc.set(x + 2, y, C.needles[4]); pc.set(x + 1, y + 2, C.needles[0]);
+          } else if (r < 0.38) { // piña
+            pc.set(x, y, C.wood[2]); pc.set(x + 1, y, C.wood[3]); pc.set(x, y + 1, C.wood[1]); pc.set(x + 1, y + 1, C.wood[0]);
+          } else if (r < 0.46) {
+            pc.set(x, y, C.grass[3]); pc.set(x - 1, y - 1, C.grass[2]); pc.set(x + 1, y - 1, C.grass[2]);
+          }
+        } else if (g === G.SNOW) {
+          if (r < 0.06) { // piedra asomando
+            pc.set(x, y, C.stone[3]); pc.set(x + 1, y, C.stone[2]); pc.set(x, y + 1, C.stone[1]); pc.set(x + 1, y + 1, C.snow[1]);
+          } else if (r < 0.18) {
+            pc.set(x, y, C.snow[1]); pc.set(x + 1, y, C.snow[2]);
+          } else if (r < 0.2) { // huellas
+            pc.set(x, y, C.snow[0]); pc.set(x + 3, y + 5, C.snow[0]);
+          }
+        } else if (g === G.ROCK) {
+          if (r < 0.25) {
+            pc.set(x, y, C.stone[4]); pc.set(x + 1, y, C.stone[3]); pc.set(x, y + 1, C.stone[1]); pc.set(x + 1, y + 1, C.stone[0]);
+          } else if (r < 0.32) {
+            pc.set(x, y, C.moss[1]); pc.set(x + 1, y, C.moss[2]); pc.set(x, y + 1, C.moss[0]);
+          }
+        } else if (g === G.MUD) {
+          if (r < 0.18) { // charquito
+            pc.set(x, y, rgb('#5a6e60')); pc.set(x + 1, y, rgb('#6e8474')); pc.set(x + 2, y, rgb('#5a6e60')); pc.set(x + 1, y + 1, C.mud[0]);
+          } else if (r < 0.3) { // raíz
+            pc.set(x, y, C.wood[1]); pc.set(x + 1, y + 1, C.wood[1]); pc.set(x + 2, y + 1, C.wood[0]);
+          } else if (r < 0.38) {
+            pc.set(x, y, C.mangrove[3]); pc.set(x, y - 1, C.mangrove[4]); pc.set(x, y + 1, C.mangrove[1]);
+          }
+        } else if (g === G.SWAMP) {
+          if (r < 0.1) { // nenúfar
+            pc.set(x, y, C.mangrove[3]); pc.set(x + 1, y, C.mangrove[4]); pc.set(x - 1, y, C.mangrove[3]); pc.set(x, y - 1, C.mangrove[4]); pc.set(x, y + 1, C.mangrove[1]);
+            if (r < 0.02) pc.set(x, y, C.red[3]);
+          }
+        } else if (g === G.GRAVEL) {
+          if (r < 0.4) { pc.set(x, y, C.gravel[4]); pc.set(x + 1, y + 1, C.gravel[0]); } else if (r < 0.45) { pc.set(x, y, C.rust[3]); pc.set(x + 1, y, C.rust[1]); }
         } else if (g === G.SAND) {
-          if (r < 0.12) { // concha
+          if (r < 0.12) {
             pc.set(x, y, rgb('#fff4ea')); pc.set(x + 1, y, rgb('#f2b8a8')); pc.set(x, y + 1, C.wetSand[0]); pc.set(x + 1, y + 1, C.wetSand[0]);
           } else if (r < 0.16) {
             pc.set(x, y, C.stone[3]); pc.set(x, y + 1, C.sand[0]);
           }
         } else if (g === G.DIRT) {
-          if (r < 0.35) { // piedrecita
+          if (r < 0.35) {
             pc.set(x, y, C.stone[4]); pc.set(x + 1, y, C.stone[2]); pc.set(x, y + 1, C.stone[1]); pc.set(x + 1, y + 1, C.dirt[0]);
           } else if (r < 0.45) {
             pc.set(x, y, C.dirt[0]); pc.set(x + 1, y + 1, C.dirt[0]);
@@ -397,60 +622,69 @@ function drawDecals(pc, map, type) {
   }
 }
 
-/** Paredes de acantilado con bloques de piedra, musgo, lianas, borde de hierba y sombra al pie. */
-function drawCliffs(pc, map, type) {
-  const W = pc.w;
-  // Bloques irregulares por bandas horizontales.
+/** Tonos del borde superior de una pared según el suelo de arriba. */
+function lipTones(g) {
+  if (g === G.SNOW) return { body: C.snow, edge: C.snow[0] };
+  if (g === G.ROCK) return { body: C.stone, edge: C.outline };
+  if (g === G.NEEDLES) return { body: C.needles, edge: C.needles[0] };
+  return { body: C.jungleFloor, edge: C.outlineGreen };
+}
+
+/** Paredes de acantilado con bloques de piedra, musgo o nieve, lianas, borde superior y sombra al pie. */
+function drawCliffs({ map, pc, tx0, ty0, tx1, ty1 }) {
   const bandH = (b) => 10 + Math.floor(hash2(b, 0, 61) * 7);
-  for (let tx = 0; tx < map.width; tx++) {
-    for (let ty = 0; ty < map.height; ty++) {
+  const X0 = Math.max(0, tx0 - 1);
+  const X1 = Math.min(map.width - 1, tx1 + 1);
+  const Y0 = Math.max(0, ty0 - 4);
+  const Y1 = Math.min(map.height - 1, ty1 + 1);
+  for (let tx = X0; tx <= X1; tx++) {
+    for (let ty = Y0; ty <= Y1; ty++) {
       if (!map.isCliff(tx, ty)) continue;
-      const top = map.cliffColumnTop(tx, ty) * TILE;
+      const topRow = map.cliffColumnTop(tx, ty);
+      const top = topRow * TILE;
+      const high = map.levelAt(tx, topRow - 1) >= 3;
       for (let y = ty * TILE; y < (ty + 1) * TILE; y++) {
-        // Banda en la que cae y.
         let by = top;
         let band = 0;
         while (by + bandH(band) <= y) { by += bandH(band); band++; }
         const ly = y - by;
         const bh = bandH(band);
         for (let x = tx * TILE; x < (tx + 1) * TILE; x++) {
-          // Bloques de anchura 12–22 px por banda.
           const off = Math.floor(hash2(band, 1, 71) * 20);
           const bw = 15 + Math.floor(hash2(band, 2, 81) * 14);
           const bx = Math.floor((x + off) / bw);
           const lx = (x + off) % bw;
-          // Esquinas redondeadas: los bloques parecen piedras, no ladrillos.
           const corner = (lx <= 1 || lx >= bw - 2) && (ly <= 1 || ly >= bh - 2);
           const tone = hash2(bx, band, 91);
           let c = pick(C.stone, 0.35 + tone * 0.45 + (bayer(x, y) - 0.5) * 0.25);
           if (ly === 0 || lx === 0 || corner) c = C.outline;
-          else if (ly === 1 || (ly === 2 && lx < bw * 0.4)) c = C.stone[4];
+          else if (ly === 1 || (ly === 2 && lx < bw * 0.4)) c = high ? C.snow[2] : C.stone[4];
           else if (lx === 1) c = C.stone[3];
           else if (ly === bh - 1 || lx === bw - 1) c = C.stone[1];
-          if (hash2(x, y, 13) < 0.03) c = C.stone[0]; // grietas
-          // Musgo: más cerca del borde superior y en manchas.
+          if (hash2(x, y, 13) < 0.03) c = C.stone[0];
           const rel = (y - top) / (3 * TILE);
           const mossN = fbm(x / 9, y / 9, 17, 2) + (1 - rel) * 0.35;
-          if (mossN > 0.78) c = C.moss[mossN > 0.86 ? 2 : bayer(x, y) > 0.5 ? 1 : 0];
-          if (rel > 0.75 && bayer(x, y) < (rel - 0.75) * 3) c = shade(c, 0.7); // oscurece al pie
-          pc.data[y * W + x] = c;
+          if (mossN > 0.78) c = high ? C.snow[mossN > 0.86 ? 4 : 2] : C.moss[mossN > 0.86 ? 2 : bayer(x, y) > 0.5 ? 1 : 0];
+          if (rel > 0.75 && bayer(x, y) < (rel - 0.75) * 3) c = shade(c, 0.7);
+          pc.set(x, y, c);
         }
       }
     }
   }
-  // Borde superior: la hierba de arriba sobresale, con contorno; lianas colgando.
-  for (let tx = 0; tx < map.width; tx++) {
-    for (let ty = 0; ty < map.height; ty++) {
+  for (let tx = X0; tx <= X1; tx++) {
+    for (let ty = Y0; ty <= Y1; ty++) {
       if (!map.isCliff(tx, ty) || map.isCliff(tx, ty - 1)) continue;
       const bottomY = (map.cliffColumnBottom(tx, ty) + 1) * TILE;
+      const above = map.groundAt(tx, ty - 1);
+      const lip = lipTones(above);
+      const vines = above !== G.SNOW && above !== G.ROCK && map.levelAt(tx, ty - 1) < 3;
       for (let x = tx * TILE; x < (tx + 1) * TILE; x++) {
         const drop = 3 + Math.floor(fbm(x / 5, ty, 23, 2) * 6);
         for (let k = 0; k < drop; k++) {
-          const c = k === drop - 1 ? C.outlineGreen : k === drop - 2 ? C.jungleFloor[1] : pick(C.jungleFloor, 0.5 + bayer(x, k) * 0.4);
+          const c = k === drop - 1 ? lip.edge : k === drop - 2 ? lip.body[1] : pick(lip.body, 0.5 + bayer(x, k) * 0.4);
           pc.set(x, ty * TILE + k, c);
         }
-        // Lianas.
-        if (hash2(x, ty, 33) < 0.07) {
+        if (vines && hash2(x, ty, 33) < 0.07) {
           const len = 12 + Math.floor(hash2(x, ty, 34) * (bottomY - ty * TILE - 16));
           for (let k = drop; k < drop + len; k++) {
             const lx = x + Math.round(Math.sin(k * 0.35 + x) * 1.2);
@@ -463,37 +697,39 @@ function drawCliffs(pc, map, type) {
               pc.set(lx + side, ty * TILE + k + 1, C.jungleLeaf[2]);
             }
           }
+        } else if (!vines && hash2(x, ty, 35) < 0.05) {
+          // Carámbanos o regueros de nieve en las paredes altas.
+          const len = 4 + Math.floor(hash2(x, ty, 36) * 10);
+          for (let k = drop; k < drop + len; k++) pc.set(x, ty * TILE + k, k > drop + len - 3 ? C.snow[1] : C.snow[3]);
         }
       }
-      // Sombra proyectada al pie de la pared.
       for (let x = tx * TILE; x < (tx + 1) * TILE; x++) {
         for (let k = 0; k < 10; k++) {
           const y = bottomY + k;
-          if (y >= pc.h) break;
-          if (k < 2 || bayer(x, y) < 1 - k / 10) pc.data[y * W + x] = shade(pc.data[y * W + x], k < 2 ? 0.45 : 0.7);
+          if (k < 2 || bayer(x, y) < 1 - k / 10) pc.set(x, y, shade(pc.get(x, y), k < 2 ? 0.45 : 0.7));
         }
       }
     }
   }
   // Bordes de meseta que no son pared (este, oeste, norte) y salientes.
-  for (let ty = 0; ty < map.height; ty++) {
-    for (let tx = 0; tx < map.width; tx++) {
+  for (let ty = Y0; ty <= Y1; ty++) {
+    for (let tx = X0; tx <= X1; tx++) {
       const g = map.groundAt(tx, ty);
       const lv = map.levelAt(tx, ty);
-      if (g === G.LEDGE_S) { drawLedge(pc, tx, ty); continue; }
+      if (g === G.LEDGE_S) { drawLedge(pc, tx, ty, lipTones(map.groundAt(tx, ty - 1))); continue; }
       if (lv === 0 || g === G.CLIFF) continue;
       const lower = (x, y) => {
         const k = map.groundAt(x, y);
-        return k !== -1 && k !== G.CLIFF && k !== G.LEDGE_S && k !== G.WATERFALL && map.levelAt(x, y) < lv;
+        return k !== -1 && k !== G.CLIFF && k !== G.LEDGE_S && k !== G.WATERFALL && k !== G.DEEP && k !== G.SHALLOW && map.levelAt(x, y) < lv;
       };
       const x0 = tx * TILE;
       const y0 = ty * TILE;
+      const lip = lipTones(g);
       for (const [dx, side] of [[-1, 'w'], [1, 'e']]) {
         if (!lower(tx + dx, ty)) continue;
         for (let y = y0; y < y0 + TILE; y++) {
           const ex = side === 'w' ? x0 : x0 + TILE - 1;
-          pc.set(ex, y, C.outlineGreen);
-          // Cara lateral de piedra en el tile bajo.
+          pc.set(ex, y, lip.edge);
           for (let k = 1; k <= 5; k++) {
             const sx = side === 'w' ? x0 - k : x0 + TILE - 1 + k;
             pc.set(sx, y, k === 5 ? C.outline : pick(C.stone, 0.3 + bayer(sx, y) * 0.3 + (side === 'e' ? 0.2 : 0)));
@@ -504,13 +740,13 @@ function drawCliffs(pc, map, type) {
           }
         }
       }
-      if (lower(tx, ty - 1)) for (let x = x0; x < x0 + TILE; x++) { pc.set(x, y0, C.outlineGreen); pc.set(x, y0 + 1, C.moss[2]); }
+      if (lower(tx, ty - 1)) for (let x = x0; x < x0 + TILE; x++) { pc.set(x, y0, lip.edge); pc.set(x, y0 + 1, g === G.SNOW ? C.snow[4] : C.moss[2]); }
     }
   }
 }
 
-/** Saliente: hierba arriba, labio de piedra con contorno y la hierba de abajo. */
-function drawLedge(pc, tx, ty) {
+/** Saliente: suelo de arriba, labio de piedra con contorno y el suelo de abajo. */
+function drawLedge(pc, tx, ty, lip) {
   const x0 = tx * TILE;
   const y0 = ty * TILE;
   for (let x = x0; x < x0 + TILE; x++) {
@@ -518,13 +754,124 @@ function drawLedge(pc, tx, ty) {
     for (let y = y0; y < y0 + TILE; y++) {
       const ly = y - y0 - wob;
       let c;
-      if (ly < 9) c = pick(C.jungleFloor, 0.45 + bayer(x, y) * 0.4);
-      else if (ly === 9) c = C.outlineGreen;
+      if (ly < 9) c = pick(lip.body, 0.45 + bayer(x, y) * 0.4);
+      else if (ly === 9) c = lip.edge;
       else if (ly < 18) c = ly === 10 ? C.stone[4] : pick(C.stone, 0.25 + bayer(x, y) * 0.4);
       else if (ly === 18) c = C.outline;
       else if (ly < 22) c = shade(pick(C.jungleFloor, 0.3 + bayer(x, y) * 0.3), 0.7);
       else continue;
       pc.set(x, y, c);
     }
+  }
+}
+
+/**
+ * Caché de trozos del suelo. Pinta cada trozo de CHUNK × CHUNK px cuando hace
+ * falta (con un margen alrededor para que bordes y orillas encajen) y guarda los
+ * más recientes. `prefetch` adelanta trozos cercanos a la cámara sin pasarse de
+ * un presupuesto de tiempo por fotograma.
+ */
+export class TerrainCache {
+  constructor(map, maxChunks = 420) {
+    this.map = map;
+    this.cols = Math.ceil(map.pixelWidth / CHUNK);
+    this.rows = Math.ceil(map.pixelHeight / CHUNK);
+    this.coarse = coarseLandDistance(map);
+    this.chunks = new Map();
+    this.max = maxChunks;
+    this.rendered = 0;
+    this.renderMs = 0;
+    this.maxRenderMs = 0;
+  }
+
+  key(cx, cy) {
+    return cy * this.cols + cx;
+  }
+
+  has(cx, cy) {
+    return this.chunks.has(this.key(cx, cy));
+  }
+
+  /** Trozo (cx, cy), pintándolo si no está. */
+  chunk(cx, cy) {
+    const k = this.key(cx, cy);
+    let ch = this.chunks.get(k);
+    if (ch) {
+      // Recién usado: al final del orden de la caché.
+      this.chunks.delete(k);
+      this.chunks.set(k, ch);
+      return ch;
+    }
+    ch = this.render(cx, cy);
+    this.chunks.set(k, ch);
+    if (this.chunks.size > this.max) this.chunks.delete(this.chunks.keys().next().value);
+    return ch;
+  }
+
+  render(cx, cy) {
+    const t0 = performance.now();
+    const x0 = cx * CHUNK;
+    const y0 = cy * CHUNK;
+    const R = renderRegion(this.map, x0 - MARGIN, y0 - MARGIN, CHUNK + MARGIN * 2, CHUNK + MARGIN * 2, this.coarse);
+    const RW = CHUNK + MARGIN * 2;
+    const out = new PixelCanvas(CHUNK, CHUNK);
+    const kind = new Uint8Array(CHUNK * CHUNK);
+    const dist = new Uint8Array(CHUNK * CHUNK);
+    const noise = new Uint8Array(CHUNK * CHUNK);
+    for (let y = 0; y < CHUNK; y++) {
+      const src = (y + MARGIN) * RW + MARGIN;
+      out.data.set(R.pc.data.subarray(src, src + CHUNK), y * CHUNK);
+      kind.set(R.kind.subarray(src, src + CHUNK), y * CHUNK);
+      dist.set(R.dist.subarray(src, src + CHUNK), y * CHUNK);
+      for (let x = 0; x < CHUNK; x++) noise[y * CHUNK + x] = (hash2(x0 + x, y0 + y, 3) * 255) | 0;
+    }
+    const ms = performance.now() - t0;
+    this.rendered++;
+    this.renderMs += ms;
+    this.maxRenderMs = Math.max(this.maxRenderMs, ms);
+    return { canvas: out.toCanvas(), kind, dist, noise, x: x0, y: y0 };
+  }
+
+  /** Trozos que tocan el rectángulo [x, x + w) × [y, y + h) en px. */
+  range(x, y, w, h) {
+    return [
+      Math.max(0, Math.floor(x / CHUNK)), Math.max(0, Math.floor(y / CHUNK)),
+      Math.min(this.cols - 1, Math.floor((x + w - 1) / CHUNK)), Math.min(this.rows - 1, Math.floor((y + h - 1) / CHUNK)),
+    ];
+  }
+
+  /** Pinta por adelantado los trozos de alrededor de la vista (como mucho `budgetMs` por llamada). */
+  prefetch(x, y, w, h, budgetMs = 5, pad = CHUNK) {
+    const t0 = performance.now();
+    const [c0, r0, c1, r1] = this.range(x - pad, y - pad, w + pad * 2, h + pad * 2);
+    const ccx = (x + w / 2) / CHUNK;
+    const ccy = (y + h / 2) / CHUNK;
+    const missing = [];
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (!this.has(c, r)) missing.push([c, r, Math.hypot(c + 0.5 - ccx, r + 0.5 - ccy)]);
+    missing.sort((a, b) => a[2] - b[2]);
+    for (const [c, r] of missing) {
+      if (performance.now() - t0 > budgetMs) break;
+      this.chunk(c, r);
+    }
+    return missing.length;
+  }
+
+  /** Dibuja el suelo visible en el lienzo de baja resolución (sin transformación). */
+  draw(l, camX, camY, w, h) {
+    const [c0, r0, c1, r1] = this.range(camX, camY, w, h);
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const ch = this.chunk(c, r);
+        l.drawImage(ch.canvas, ch.x - camX, ch.y - camY);
+      }
+    }
+  }
+
+  /** Tipo de agua y distancia a tierra en un píxel de mundo (solo trozos ya pintados). */
+  waterAt(x, y) {
+    const ch = this.chunks.get(this.key(Math.floor(x / CHUNK), Math.floor(y / CHUNK)));
+    if (!ch) return null;
+    const i = (y - ch.y) * CHUNK + (x - ch.x);
+    return { kind: ch.kind[i], dist: ch.dist[i] };
   }
 }

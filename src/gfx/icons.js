@@ -63,6 +63,16 @@ const DRAW = {
   antorcha(p) {
     p.line(5, 14, 10, 6, C.wood[2], 2); p.rect(9, 3, 4, 4, rgb('#ff9a1e')); p.rect(10, 2, 2, 2, rgb('#ffe066'));
   },
+  bidon(p) {
+    p.rect(4, 3, 9, 12, C.red[2]); p.rect(4, 3, 3, 12, C.red[3]); p.rect(11, 3, 2, 12, C.red[0]);
+    p.rect(4, 6, 9, 1, C.red[0]); p.rect(4, 11, 9, 1, C.red[0]); p.rect(9, 1, 3, 2, C.metal[3]);
+  },
+  huevo(p) {
+    p.shadedEllipse(8, 9, 4, 5, [rgb('#b8b098'), rgb('#e0d8c4'), rgb('#f8f2e4'), rgb('#ffffff')]); p.set(9, 11, rgb('#a89a80')); p.set(6, 8, rgb('#a89a80'));
+  },
+  metal(p) {
+    p.poly([[2, 10], [9, 4], [14, 7], [8, 14]], C.metal[2]); p.line(3, 10, 9, 5, C.metal[4]); p.rect(9, 9, 3, 2, C.rust[2]); p.set(6, 11, C.rust[3]);
+  },
   idolo(p) {
     p.rect(5, 3, 6, 11, rgb('#3a9a6a')); p.rect(5, 3, 2, 11, rgb('#6ad09a')); p.rect(6, 6, 1, 1, C.black); p.rect(9, 6, 1, 1, C.black);
     p.rect(6, 10, 4, 1, rgb('#1e5a3a')); p.rect(4, 13, 8, 2, rgb('#2a7a4e'));

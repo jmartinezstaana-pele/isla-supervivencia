@@ -19,6 +19,9 @@ export const ITEMS = {
   hierba: { nombre: 'Hierba medicinal', tipo: 'cura', efecto: { vida: 12 }, curaVeneno: true, desc: 'Hojas que calman el dolor y asientan el estómago.' },
   cecina: { nombre: 'Carne seca', tipo: 'comida', efecto: { hambre: 25 }, desc: 'Provisiones de la tribu.' },
   antorcha: { nombre: 'Antorcha', tipo: 'herramienta', desc: 'T para encenderla. Da luz de noche, pero te delata.' },
+  bidon: { nombre: 'Bidón de combustible', tipo: 'clave', desc: 'Lleno de gasolina de avión. Harán falta tres para volver a volar.' },
+  huevo: { nombre: 'Huevo de ave marina', tipo: 'comida', efecto: { hambre: 9 }, riesgo: 0.1, desc: 'Del nido de los acantilados. Mejor cocinado.' },
+  metal: { nombre: 'Chatarra', tipo: 'material', desc: 'Piezas de metal del campamento militar.' },
   idolo: { nombre: 'Ídolo de jade', tipo: 'tesoro', desc: 'Una figurilla antigua de las ruinas. ¿Qué secretos guarda la isla?' },
 };
 
@@ -36,12 +39,14 @@ export const HINTS = {
   bayas: { 3: 'Las reconoces: no son venenosas, aunque alguna puede estar pasada.' },
   carne: { 2: 'Cruda puede sentarte mal. Asada en una hoguera, no.' },
   cangrejo: { 2: 'Crudo es arriesgado.' },
+  metal: { 2: 'Con cuerda y metal se haría un garfio.', 4: 'Garfio: 3 cuerdas y 2 piezas de metal. Kit de reparación: 4 metal, 2 cables y 1 cuerda.' },
+  bidon: { 2: 'Si el avión cayó en la arena, quizá vuelva a volar.' },
   coco: { 2: 'La cáscara podría servir de recipiente para hervir agua.' },
 };
 
 /** Orden de preferencia para los atajos Q (comer), R (beber) y H (curar). */
 export const QUICK = {
-  comer: ['cecina', 'racion', 'galletas', 'cangrejo', 'coco', 'bayas', 'carne'],
+  comer: ['cecina', 'racion', 'galletas', 'cangrejo', 'coco', 'huevo', 'bayas', 'carne'],
   beber: ['botella', 'coco'],
   curar: ['venda', 'hierba'],
 };
