@@ -51,12 +51,39 @@ def extract_row(f, box, n_expected, bgthr=26, minarea=150, light=False, merge_ga
         else:
             frames.append([s[0], s[1], s[2], s[3], [s[4]]])
     res = []
+    rgb = reg[..., :3]
+    if light:
+        bgc = np.median(rgb[:3].reshape(-1, 3), axis=0)
+    else:
+        border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+        bgc = np.median(border, axis=0)
+    H, W = rgb.shape[:2]
     for fx0, fx1, fy0, fy1, ids in frames:
-        sub = np.isin(lab[fy0:fy1, fx0:fx1], ids)
-        sub = nd.binary_fill_holes(sub)
-        sub = nd.binary_dilation(sub, iterations=1) & (mask_dark_bg(reg, 8, light)[fy0:fy1, fx0:fx1] | sub)
-        rgba = reg[fy0:fy1, fx0:fx1].copy()
-        rgba[..., 3] = np.where(sub, 255, 0)
+        # Caja con margen: el borde de la caja es fondo seguro.
+        P = 4
+        ax0, ax1, ay0, ay1 = max(0, fx0 - P), min(W, fx1 + P), max(0, fy0 - P), min(H, fy1 + P)
+        sub_rgb = rgb[ay0:ay1, ax0:ax1]
+        # Relleno del fondo DESDE FUERA: solo píxeles muy parecidos al fondo y
+        # conectados con el borde. Se para en el contorno negro del dibujo, así que
+        # las zonas oscuras interiores (pierna trasera en sombra) se conservan.
+        tol = 22 if light else 9
+        near = np.abs(sub_rgb - bgc).max(-1) <= tol
+        lab_bg, _ = nd.label(near)
+        edge = np.unique(np.concatenate([lab_bg[0], lab_bg[-1], lab_bg[:, 0], lab_bg[:, -1]]))
+        bgmask = np.isin(lab_bg, edge[edge > 0])
+        fg = ~bgmask
+        # Quita restos de otros fotogramas que entren en el margen: conserva lo que
+        # toca a los componentes detectados de este fotograma.
+        seed = np.zeros_like(fg)
+        seed[fy0 - ay0:fy1 - ay0, fx0 - ax0:fx1 - ax0] = np.isin(lab[fy0:fy1, fx0:fx1], ids)
+        lab_fg, _ = nd.label(fg, structure=np.ones((3, 3)))
+        keep = np.unique(lab_fg[seed & fg]); keep = keep[keep > 0]
+        fg = np.isin(lab_fg, keep)
+        fg = nd.binary_fill_holes(fg)
+        rgba = reg[ay0:ay1, ax0:ax1].copy()
+        rgba[..., 3] = np.where(fg, 255, 0)
+        ys, xs = np.nonzero(fg)
+        rgba = rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
         res.append(rgba.astype(np.uint8))
     print(f, 'frames found', len(res), [r.shape[:2] for r in res], file=sys.stderr)
     return res
@@ -108,9 +135,11 @@ packed = []
 for k, frs in sheets.items():
     for i, f in enumerate(frs):
         f = f.copy()
-        blk = (f[..., :3].astype(int).sum(-1) < 40) & (f[..., 3] > 0)
-        thick = nd.binary_dilation(nd.binary_opening(blk, iterations=3), iterations=4) & blk
-        f[thick, 3] = 0
+        # Borrones negros del original (objetos tapados): solo en estas hojas.
+        if k in ('reach', 'up', 'roll', 'pick'):
+            blk = (f[..., :3].astype(int).sum(-1) < 40) & (f[..., 3] > 0)
+            thick = nd.binary_dilation(nd.binary_opening(blk, iterations=3), iterations=4) & blk
+            f[thick, 3] = 0
         # keep largest component only
         lab, n = nd.label(f[..., 3] > 0, structure=np.ones((3, 3)))
         if n > 1:

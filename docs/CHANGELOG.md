@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## Arreglo entre sesiones: pierna del protagonista (15/11/2026)
+
+- Javier: "en muchos movimientos se le desaparece una pierna". El script de recorte (`tools/extract_sprites.py`) confundía con el fondo la pierna trasera, pintada en verde casi negro.
+- Ahora el fondo se quita con un relleno desde fuera de cada fotograma, que se detiene en el contorno negro del dibujo. Los borrones negros solo se eliminan en las hojas que los tienen (recoger, alcanzar, brazos arriba, rodar).
+- Atlas regenerado (1024 × 486, 90 fotogramas, mismos nombres y número de fotogramas). Las 12 pruebas siguen en verde.
+- Hoja de ruta por sesiones añadida en TRASPASO §4d.
+
 ## Sesión 3 — §4c: estética de verdad y primer espacio jugable (15/11/2026)
 
 Javier rechazó el aspecto de la sesión 2. El objetivo visual es `assets-src/referencias/objetivo-estilo-selva.png`.

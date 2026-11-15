@@ -457,6 +457,7 @@ Todas las marcadas **[ACORDADO-USUARIO]** y **[ACORDADO-DELEGADO]** en §1 y §2
 5. **Texto incrustado** en `avion.jpg` y `paisaje.jpg` (ver §1.6).
 6. ~~**Vista lateral frente a cenital**~~ (resuelto: **vista cenital**, Javier lo decidió tras probar la lateral; ver §2.1). El clima ya está resuelto: varios biomas con selva, lluvia y oscuridad (ver §1.6).
 7. ~~**Contradicción con las instrucciones del proyecto "Juego"**~~ (resuelto: el repositorio es del juego de la isla).
+8. ~~**Al protagonista le desaparece una pierna en muchos movimientos**~~ (queja de Javier, 15/11/2026). **Corregido:** el script de recorte borraba como fondo la pierna trasera, que está pintada en verde casi negro. Ahora el fondo se elimina por relleno desde fuera, que se detiene en el contorno negro del dibujo, y los borrones negros solo se quitan en las hojas que los tienen. Atlas regenerado (1024 × 486, 90 fotogramas, mismos nombres). Si vuelve a verse algo raro en un sprite, revisarlo primero en `tools/extract_sprites.py`.
 
 ### 3.6 Preguntas abiertas para Javier
 
@@ -492,6 +493,147 @@ Principio general: **terminar cada sistema y dejarlo jugable antes de empezar el
 | **8. Fauna, noche y clima** | Jabalí, serpiente, depredador nocturno, tiburones, cazadores nocturnos, antorcha (da luz pero también te delata). Lluvia y tormenta, niebla, frío en la cumbre, oscuridad real | La noche es claramente más peligrosa. La antorcha ahuyenta al depredador. La lluvia y la oscuridad cambian cómo se juega (visibilidad, sigilo, agua, fuego). |
 | **9. Finales y secretos** | Radio, balsa, avión, notas, diario de objetivos, secreto de los cristales, pantalla final con estadísticas | Los 3 finales se pueden completar en una partida de prueba. El diario refleja las pistas encontradas. |
 | **10. Pulido** | Equilibrio (30–60 min por partida), HUD, audio, rendimiento a 60 fps, documento de funciones hechas / parciales / pendientes | Una partida completa sin bloqueos ni errores de consola. Documentación al día. |
+
+---
+
+## 4d. HOJA DE RUTA POR SESIONES (desde la sesión 4) [RECOMENDACIÓN]
+
+> **Esta sección manda sobre el plan anterior.** Reordena lo que falta de §4 en sesiones cerradas, teniendo en cuenta lo ya hecho en las sesiones 1–3. Reglas para todas las sesiones:
+> - **No parar ni pedir confirmación hasta cumplir la definición de terminado de la sesión.** Si algo se complica, hacer una versión sencilla que funcione y seguir.
+> - **Mantener el nivel visual** de la sesión 3 (referencia: `assets-src/referencias/objetivo-estilo-selva.png`). Todo lo nuevo (biomas, interfaces, enemigos) con la misma estética de pixel art con contorno. **Revisar capturas** antes de cerrar.
+> - Trabajar en la rama `claude/vista-cenital`. Commits pequeños. Al acabar: `npm run build` y `npm test` en verde, pruebas nuevas para lo nuevo, CHANGELOG y este documento al día, e informe honesto.
+> - Cuando una pregunta de §3.6 bloquee el trabajo, aplicar la recomendación del documento, dejarlo anotado y seguir.
+
+### Estado al empezar la sesión 4
+
+- **Hecho:**
+  - Fases 0 y 1b.
+  - Espacio jugable de §4c: playa y selva hechas a mano, saqueo, mochila, comer y beber, combate cuerpo a cuerpo, 3 guerreros con cono de visión, jabalí, cangrejos, sigilo en hierba alta, eliminación por la espalda, día y noche, lluvia con tormenta, HUD y sonido.
+  - Recorte de sprites corregido (pierna).
+- **Falta:**
+  - flujo de inicio;
+  - la isla completa y sus biomas;
+  - movilidad avanzada;
+  - fabricación, refugio y guardado;
+  - el resto de fauna, enemigos y clima;
+  - finales y secretos;
+  - pulido.
+
+### Sesión 4: Flujo de inicio y atributos (Fase 2)
+
+- **Título** con `avion.jpg`: Nueva partida, Continuar (desactivado hasta que haya guardado) y Controles.
+- **Creación de personaje** con `paisaje.jpg` de fondo:
+  - **10 puntos** entre Fuerza, Agilidad, Inteligencia y Sigilo/Percepción, con una descripción de qué hace cada uno;
+  - colores de **pelo/pañuelo, piel, camiseta y pantalón** con recoloreado (§2.6) y **vista previa animada** del personaje girando por las 4 direcciones.
+- **Intro breve** (2–3 pantallas de texto) y **aterrizaje cenital**:
+  - mapa de la isla desde arriba con "SIN COMBUSTIBLE" parpadeando, altímetro, giro con A/D y Espacio para aterrizar;
+  - resultado según la zona (§2.4);
+  - aparecer en el mundo en el sitio correspondiente.
+  - Mientras la isla completa no exista (sesión 5), se aterriza dentro del mapa actual con las zonas que haya, y las demás muestran "zona sin explorar".
+- **Los atributos tienen efecto real:**
+  - vida y daño (Fuerza);
+  - velocidad, salto y aguante de escalada (Agilidad);
+  - pistas en el inventario y probabilidad de enfermar (Inteligencia, preparada para la fabricación);
+  - ruido y detección (Sigilo).
+  - Pantalla de personaje (tecla P) con los valores.
+- **Terminado cuando:** se juega el recorrido título → creación → intro → aterrizaje → juego. Dos personajes con atributos muy distintos se notan al jugar (prueba automática que mida salto, vida y detección). La vista previa refleja los colores elegidos.
+
+### Sesión 5: La isla completa, exterior (Fase 3, parte 1)
+
+- Mapa grande hecho a mano o semiprocedural de unos **200 × 160 tiles** con los biomas de §2.4:
+  - playa del naufragio;
+  - selva;
+  - **manglar con niebla**;
+  - **poblado de la tribu**;
+  - **monte con terrazas y cumbre nevada**;
+  - **campamento militar abandonado** (inspirado en `paisaje.jpg`);
+  - **acantilados del viento**;
+  - **bahía este** con embarcadero y helipuerto.
+  - Integrar dentro del mapa grande el trozo ya hecho (playa y selva).
+- Cada bioma con **tiles, props y ambiente propios** al nivel de la sesión 3: nieve y ventisca arriba, barro y niebla en el manglar, metal oxidado y tiendas en el campamento.
+- **Mapa del juego (M)** con niebla de guerra por zonas descubiertas y marcador del jugador. **El mapa del aterrizaje sale de este mismo mapa.**
+- Rendimiento: dibujar solo lo visible y prerenderizar por trozos (chunks).
+- **Terminado cuando:** se recorre la isla entera sin cargas ni errores. Cada bioma tiene una captura revisada contra la referencia. El mapa M se va descubriendo. Se mantienen los 60 fps.
+
+### Sesión 6: Interiores y subsuelo (Fase 3, parte 2)
+
+- **Cuevas del monte** (mapa aparte, oscuridad total que exige antorcha): ruta alternativa a la escalada, guarida del depredador, bidón, tarjeta de acceso, esqueleto con nota.
+- **Búnker** bajo el campamento: puerta que se abre con tarjeta y salas con radio rota, batería, cables, bidón y notas.
+- **Interiores de cabañas** del poblado, con la choza del jefe y su bidón.
+- **Transiciones** de entrada y salida al estilo Pokémon, con fundido.
+- **Terminado cuando:** se puede entrar y salir de cueva, búnker y cabañas. La cueva conecta dos alturas del monte. La tarjeta abre el búnker. Hay pruebas automáticas de ello.
+
+### Sesión 7: Movilidad avanzada y persecución (Fase 4)
+
+- Escalada entre alturas con aguante según la Agilidad, ya en todo el monte.
+- Lianas y escaleras.
+- **Garfio** a puntos de anclaje.
+- Saltos de huecos según la Agilidad.
+- **Nado** con aguante y **tiburones** en aguas profundas.
+- Daño por caída.
+- **Suelo que se derrumba**.
+- **Ráfagas de viento** en los acantilados.
+- **Voltereta** con invulnerabilidad breve.
+- **Persecución jugable en los acantilados:** la tribu te persigue por caminos al borde del mar.
+- **Terminado cuando:**
+  - con Agilidad 0 se llega a la cumbre por la cueva y con Agilidad alta escalando;
+  - el garfio funciona;
+  - caer al mar con tiburones es peligroso;
+  - la persecución se puede jugar y superar.
+
+### Sesión 8: Supervivencia completa, fabricación y guardado (Fases 5 y 6)
+
+- **Inventario con peso** (capacidad según la Fuerza) y cofres con transferencia.
+- Agua dulce, salada y sucia, y enfermedad.
+- **Hoguera** (cocinar y hervir agua).
+- **Cama o refugio** (dormir hasta la mañana, recuperar energía y fijar el punto de reaparición; riesgo de emboscada si no hay fuego).
+- **Fabricación** con las recetas de §2.5 y **mezcla con pistas según la Inteligencia**.
+- **Guardado** automático (al dormir y periódico) en localStorage, y Continuar en el título.
+- **Muerte con mochila caída** (§2.4), salvo que Javier haya dicho otra cosa (§3.6, pregunta 6).
+- **Terminado cuando:**
+  - se sobrevive una noche entera gestionando recursos;
+  - las recetas consumen materiales;
+  - mezclar bien descubre la receta y mezclar mal penaliza;
+  - guardar, recargar y continuar conserva todo.
+  - Todo ello con pruebas automáticas.
+
+### Sesión 9: Fauna, enemigos y clima completos (Fases 7 y 8)
+
+- **Arco y flechas**, lanzas arrojadizas de la tribu y **ruido con radio visible**.
+- **Pathfinding** para que los enemigos rodeen obstáculos.
+- **Vigilantes del campamento militar**.
+- **Serpiente** escondida en la hierba.
+- **Depredador nocturno** (la antorcha lo ahuyenta).
+- **Cazadores nocturnos**.
+- **Niebla**, **frío y ventisca en la cumbre** (hace falta abrigo o fuego) y **la lluvia apaga la antorcha**.
+- **Terminado cuando:**
+  - la noche es claramente más peligrosa;
+  - el depredador respeta la antorcha;
+  - el frío obliga a prepararse para subir;
+  - los enemigos no se atascan;
+  - se puede saquear el poblado entero en sigilo.
+
+### Sesión 10: Finales, secretos e historia (Fase 9)
+
+- **Tres huidas completas** (§2.5):
+  - **radio** reparada y usada en la antena de la cumbre, con espera hasta el helicóptero mientras la tribu te caza;
+  - **balsa** en el embarcadero;
+  - **avión** con 3 bidones y kit de reparación, solo si aterrizaste en arena.
+- **6 notas** de historia, **diario (L)** con objetivos y pistas, **secreto de los cristales** (la tribu deja de ser hostil) y el ídolo de jade con uso.
+- **Pantalla final** con estadísticas.
+- **Terminado cuando:** las tres huidas se pueden completar en partidas de prueba (hay pruebas automáticas con atajos de depuración) y el diario refleja lo descubierto.
+
+### Sesión 11: Pulido y entrega (Fase 10)
+
+- Equilibrio para que una partida dure **30–60 minutos**.
+- Ajuste de dificultad.
+- Música y ambiente por bioma (sintetizados).
+- Opciones de volumen y controles.
+- Probar en Chrome, Edge y Firefox.
+- Rendimiento.
+- Documento de funciones **hechas / parciales / pendientes**.
+- **Fusionar la rama en `main` mediante un pull request** y publicar `dist/isla.html` en una release de GitHub (o en GitHub Pages si Javier quiere).
+- **Terminado cuando:** una partida completa de principio a fin no tiene bloqueos ni errores, la documentación está al día y el juego se puede descargar con un clic.
 
 ---
 
